@@ -1,8 +1,8 @@
-"""EHealthWave fix db relations ship
+"""EHealthWave 
 
-Revision ID: f159f1a2b2a5
+Revision ID: aa09e4286fb8
 Revises: 
-Create Date: 2024-09-06 21:36:47.900494
+Create Date: 2024-09-08 19:49:35.018685
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'f159f1a2b2a5'
+revision = 'aa09e4286fb8'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -22,10 +22,11 @@ def upgrade():
     sa.Column('user_id', sa.String(length=60), nullable=False),
     sa.Column('username', sa.String(length=25), nullable=True),
     sa.Column('email', sa.String(length=120), nullable=True),
-    sa.Column('password_hash', sa.String(length=128), nullable=True),
+    sa.Column('password_hash', sa.String(length=255), nullable=True),
     sa.Column('role', sa.Enum('patient', 'doctor'), nullable=True),
     sa.Column('last_login', sa.DateTime(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.Column('_is_active', sa.Boolean(), nullable=True),
     sa.PrimaryKeyConstraint('user_id')
     )
     with op.batch_alter_table('users', schema=None) as batch_op:
@@ -39,7 +40,6 @@ def upgrade():
     sa.Column('last_name', sa.String(length=25), nullable=True),
     sa.Column('gender', sa.Enum('male', 'female'), nullable=True),
     sa.Column('date_of_birth', sa.DateTime(), nullable=True),
-    sa.Column('email', sa.String(length=120), nullable=True),
     sa.Column('phone', sa.String(length=15), nullable=True),
     sa.Column('specialty', sa.String(length=100), nullable=True),
     sa.Column('license_number', sa.String(length=50), nullable=True),
@@ -51,19 +51,18 @@ def upgrade():
     sa.Column('bio', sa.String(length=255), nullable=True),
     sa.Column('profile_picture', sa.String(length=255), nullable=True),
     sa.Column('banner_picture', sa.String(length=255), nullable=True),
-    sa.Column('is_active', sa.Boolean(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('is_deleted', sa.Boolean(), nullable=True),
-    sa.Column('user_id', sa.String(length=60), nullable=False),
+    sa.Column('user_id', sa.String(length=60), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.user_id'], ),
-    sa.PrimaryKeyConstraint('doctor_id')
+    sa.PrimaryKeyConstraint('doctor_id'),
+    sa.UniqueConstraint('user_id')
     )
     with op.batch_alter_table('doctors', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_doctors_address'), ['address'], unique=False)
         batch_op.create_index(batch_op.f('ix_doctors_banner_picture'), ['banner_picture'], unique=False)
         batch_op.create_index(batch_op.f('ix_doctors_bio'), ['bio'], unique=False)
         batch_op.create_index(batch_op.f('ix_doctors_city'), ['city'], unique=False)
-        batch_op.create_index(batch_op.f('ix_doctors_email'), ['email'], unique=True)
         batch_op.create_index(batch_op.f('ix_doctors_first_name'), ['first_name'], unique=False)
         batch_op.create_index(batch_op.f('ix_doctors_last_name'), ['last_name'], unique=False)
         batch_op.create_index(batch_op.f('ix_doctors_license_number'), ['license_number'], unique=False)
@@ -77,12 +76,11 @@ def upgrade():
 
     op.create_table('patients',
     sa.Column('patient_id', sa.String(length=60), nullable=False),
-    sa.Column('user_id', sa.String(length=60), nullable=False),
+    sa.Column('user_id', sa.String(length=60), nullable=True),
     sa.Column('first_name', sa.String(length=25), nullable=True),
     sa.Column('middle_name', sa.String(length=25), nullable=True),
     sa.Column('last_name', sa.String(length=25), nullable=True),
     sa.Column('gender', sa.Enum('male', 'female'), nullable=True),
-    sa.Column('email', sa.String(length=120), nullable=True),
     sa.Column('phone', sa.String(length=15), nullable=True),
     sa.Column('address', sa.String(length=120), nullable=True),
     sa.Column('city', sa.String(length=25), nullable=True),
@@ -91,18 +89,17 @@ def upgrade():
     sa.Column('about_me', sa.String(length=255), nullable=True),
     sa.Column('profile_picture', sa.String(length=255), nullable=True),
     sa.Column('banner_picture', sa.String(length=255), nullable=True),
-    sa.Column('is_active', sa.Boolean(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('is_deleted', sa.Boolean(), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.user_id'], ),
-    sa.PrimaryKeyConstraint('patient_id')
+    sa.PrimaryKeyConstraint('patient_id'),
+    sa.UniqueConstraint('user_id')
     )
     with op.batch_alter_table('patients', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_patients_about_me'), ['about_me'], unique=False)
         batch_op.create_index(batch_op.f('ix_patients_address'), ['address'], unique=False)
         batch_op.create_index(batch_op.f('ix_patients_banner_picture'), ['banner_picture'], unique=False)
         batch_op.create_index(batch_op.f('ix_patients_city'), ['city'], unique=False)
-        batch_op.create_index(batch_op.f('ix_patients_email'), ['email'], unique=True)
         batch_op.create_index(batch_op.f('ix_patients_first_name'), ['first_name'], unique=False)
         batch_op.create_index(batch_op.f('ix_patients_last_name'), ['last_name'], unique=False)
         batch_op.create_index(batch_op.f('ix_patients_middle_name'), ['middle_name'], unique=False)
@@ -124,7 +121,6 @@ def downgrade():
         batch_op.drop_index(batch_op.f('ix_patients_middle_name'))
         batch_op.drop_index(batch_op.f('ix_patients_last_name'))
         batch_op.drop_index(batch_op.f('ix_patients_first_name'))
-        batch_op.drop_index(batch_op.f('ix_patients_email'))
         batch_op.drop_index(batch_op.f('ix_patients_city'))
         batch_op.drop_index(batch_op.f('ix_patients_banner_picture'))
         batch_op.drop_index(batch_op.f('ix_patients_address'))
@@ -142,7 +138,6 @@ def downgrade():
         batch_op.drop_index(batch_op.f('ix_doctors_license_number'))
         batch_op.drop_index(batch_op.f('ix_doctors_last_name'))
         batch_op.drop_index(batch_op.f('ix_doctors_first_name'))
-        batch_op.drop_index(batch_op.f('ix_doctors_email'))
         batch_op.drop_index(batch_op.f('ix_doctors_city'))
         batch_op.drop_index(batch_op.f('ix_doctors_bio'))
         batch_op.drop_index(batch_op.f('ix_doctors_banner_picture'))

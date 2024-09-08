@@ -7,6 +7,7 @@ from flask_login import UserMixin
 
 
 class Users(db.Model, UserMixin):
+    """ Users model """
     __tablename__ = 'users'
     user_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
     username = db.Column(db.String(25), index=True, unique=True)
@@ -16,8 +17,8 @@ class Users(db.Model, UserMixin):
     last_login = db.Column(db.DateTime, default=datetime.utcnow)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     _is_active = db.Column(db.Boolean, default=True)
-    doctor = db.relationship('Doctors', backref='user', uselist=False)
-    patient = db.relationship('Patients', backref='user', uselist=False)
+    doctor = db.relationship('Doctors', uselist=False, back_populates='user')
+    patient = db.relationship('Patients', uselist=False, back_populates='user')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -36,18 +37,7 @@ class Users(db.Model, UserMixin):
     
     def get_id(self):
         return self.user_id
-    
-    # @property
-    # def is_authenticated(self):
-    #     return True
-    
-    # @property
-    # def is_anonymous(self):
-    #     return False
-    
-    # @property
-    # def is_active(self):
-    #     return self._is_active
+
 
     
     def to_dict(self):
@@ -65,6 +55,7 @@ class Users(db.Model, UserMixin):
         return '<User {}>'.format(self.username)
     
 class Doctors(db.Model):
+    """ Doctors model """
     __tablename__ = 'doctors'
     doctor_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
     first_name = db.Column(db.String(25), index=True)
@@ -72,7 +63,7 @@ class Doctors(db.Model):
     last_name = db.Column(db.String(25), index=True)
     gender = db.Column(sa.Enum('male', 'female'))
     date_of_birth = db.Column(db.DateTime)
-    email = db.Column(db.String(120), index=True, unique=True)
+    # email = db.Column(db.String(120), index=True, unique=True)
     phone = db.Column(db.String(15), index=True, unique=True)
     specialty = db.Column(db.String(100), index=True)
     license_number = db.Column(db.String(50), index=True)
@@ -87,7 +78,8 @@ class Doctors(db.Model):
     # is_active = db.Column(db.Boolean, default=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)
-    user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'), nullable=False)
+    user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'), unique=True)
+    user = db.relationship('Users', back_populates='doctor')
 
     def to_dict(self):
         return {
@@ -126,7 +118,8 @@ class Patients(db.Model):
     middle_name = db.Column(db.String(25), index=True)
     last_name = db.Column(db.String(25), index=True)
     gender = db.Column(sa.Enum('male', 'female'))
-    email = db.Column(db.String(120), index=True, unique=True)
+    date_of_birth = db.Column(db.DateTime)
+    # email = db.Column(db.String(120), index=True, unique=True)
     phone = db.Column(db.String(15), index=True, unique=True)
     address = db.Column(db.String(120), index=True)
     city = db.Column(db.String(25), index=True)
@@ -138,7 +131,9 @@ class Patients(db.Model):
     # is_active = db.Column(db.Boolean, default=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)
-    user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'), nullable=False)
+    user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'), unique=True)
+    user = db.relationship('Users', back_populates='patient')
+    
 
     def to_dict(self):
         return {
