@@ -80,6 +80,7 @@ class Doctors(db.Model):
     is_deleted = db.Column(db.Boolean, default=False)
     user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'), unique=True)
     user = db.relationship('Users', back_populates='doctor')
+    Certificate = db.relationship('Certificates', backref='doctor', lazy='dynamic')
 
     def to_dict(self):
         return {
@@ -161,34 +162,36 @@ class Patients(db.Model):
     def __repr__(self):
         return '<Patient {}>'.format(self.first_name)
     
-# class Certificates(db.Model):
-#     __tablename__ = 'certificates'
-#     certificate_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
-#     doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
-#     certificate_name = db.Column(db.String(100), index=True)
-#     certificate_number = db.Column(db.String(50), index=True)
-#     issue_date = db.Column(db.DateTime)
-#     expiry_date = db.Column(db.DateTime)
-#     is_active = db.Column(db.Boolean, default=True)
-#     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
-#     is_deleted = db.Column(db.Boolean, default=False)
-#     doctor = db.relationship('Doctors', backref='certificate', lazy='dynamic')
+class Certificates(db.Model):
+    __tablename__ = 'certificates'
+    certificate_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
+    doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
+    certificate_name = db.Column(db.String(100), index=True)
+    certificate_number = db.Column(db.String(50), index=True)
+    issue_date = db.Column(db.DateTime)
+    expiry_date = db.Column(db.DateTime)
+    certificate_picture = db.Column(db.String(255), index=True)
+    is_active = db.Column(db.Boolean, default=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_deleted = db.Column(db.Boolean, default=False)
+    # doctor = db.relationship('Doctors', backref='certificate', lazy='dynamic')
 
-#     def to_dict(self):
-#         return {
-#             'certificate_id': self.certificate_id,
-#             'doctor_id': self.doctor_id,
-#             'certificate_name': self.certificate_name,
-#             'certificate_number': self.certificate_number,
-#             'issue_date': self.issue_date,
-#             'expiry_date': self.expiry_date,
-#             'is_active': self.is_active,
-#             'updated_at': self.updated_at,
-#             'is_deleted': self.is_deleted
-#         }
+    def to_dict(self):
+        return {
+            'certificate_id': self.certificate_id,
+            'doctor_id': self.doctor_id,
+            'certificate_name': self.certificate_name,
+            'certificate_number': self.certificate_number,
+            'issue_date': self.issue_date,
+            'expiry_date': self.expiry_date,
+            'certificate_picture': self.certificate_picture,
+            'is_active': self.is_active,
+            'updated_at': self.updated_at,
+            'is_deleted': self.is_deleted
+        }
     
-#     def __repr__(self):
-#         return '<Certificate {}>'.format(self.certificate_name)
+    def __repr__(self):
+        return '<Certificate {}>'.format(self.certificate_name)
     
 # class Appointments(db.Model):
 #     __tablename__ = 'appointments'
@@ -474,7 +477,7 @@ class Patients(db.Model):
 #     __tablename__ = 'user_ip'
 #     user_ip_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
 #     user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'))
-#     user_ip = db.Column(db.String(60), index=True)
+    # user_ip = db.Column(db.String(60), index=True, unique=True)
 #     is_active = db.Column(db.Boolean, default=True)
 #     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 #     is_deleted = db.Column(db.Boolean, default=False)
