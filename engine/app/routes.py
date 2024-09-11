@@ -351,22 +351,31 @@ def delete_user():
 def create_certificate():
     if not current_user.is_authenticated:
         return jsonify({'message': 'You must be logged in to access this page'}), 401
-    
-    
-    
+
+    # Check if the current user is a doctor
+    doctor = Doctors.query.filter_by(user_id=current_user.user_id).first()
+    if not doctor:
+        return jsonify({'message': 'Doctor not found'}), 404
+
     data = request.get_json()
-    if not data['certificate_name'] or not data['certificate_number'] or not \
-            data['issue_date'] or not data['expiry_date']:
-        return jsonify({'message': 'Missing data'}), 400
-    
-    try:
-        issue_date = datetime.datetime.strptime(data['issue_date'], '%Y-%m-%d').date()
-        expiry_date = datetime.datetime.strptime(data['expiry_date'], '%Y-%m-%d').date()
-    except ValueError:
-        return jsonify({'message': 'Invalid date format, should be YYYY-MM-DD'}), 400
-    
+    if not data.get('certificate_name') or not data.get('issue_date'):
+        return jsonify({'message': 'Missing required data'}), 400
+
+    expiry_date = None
+
+    issue_date = datetime.datetime.strptime(data['issue_date'], '%Y-%m-%d').date()
+
+    if data.get('expiry_date'):
+        try:
+            expiry_date = datetime.datetime.strptime(data['expiry_date'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'message': 'Invalid expiry date format, should be YYYY-MM-DD'}), 400
+
+    if issue_date and expiry_date and issue_date > expiry_date:
+        return jsonify({'message': 'Issue date cannot be greater than expiry date'}), 400
+
     certificate = Certificates(
-        doctor_id=current_user.user_id,
+        doctor_id=doctor.doctor_id,
         certificate_name=data['certificate_name'],
         certificate_number=data['certificate_number'],
         issue_date=issue_date,
@@ -376,3 +385,70 @@ def create_certificate():
     db.session.commit()
     return jsonify({'message': 'Certificate created'}), 201
 
+@app.route('/doctor/certificate/update/<string:certificate_name>', methods=['PUT'])
+@login_required
+@role_required('doctor')
+def update_certificate(certificate_name):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    doctor = Doctors.query.filter_by(user_id=current_user.user_id).first()
+    if not doctor:
+        return jsonify({'message': 'Doctor not found'}), 404
+
+    certificate = Certificates.query.filter_by(doctor_id=doctor.doctor_id, certificate_name=certificate_name).first()
+    if not certificate:
+        return jsonify({'message': 'Certificate not found'}), 404
+
+    data = request.get_json()
+    if 'certificate_name' in data:
+        certificate.certificate_name = data['certificate_name']
+    if 'certificate_number' in data:
+        certificate.certificate_number = data['certificate_number']
+
+    issue_date = None
+    expiry_date = None
+
+    if 'issue_date' in data:
+        try:
+            issue_date = datetime.datetime.strptime(data['issue_date'], '%Y-%m-%d').date()
+            certificate.issue_date = issue_date
+        except ValueError:
+            return jsonify({'message': 'Invalid issue date format, should be YYYY-MM-DD'}), 400
+        
+    if 'expiry_date' in data:
+        try:
+            expiry_date = datetime.datetime.strptime(data['expiry_date'], '%Y-%m-%d').date()
+            certificate.expiry_date = expiry_date
+        except ValueError:
+            return jsonify({'message': 'Invalid expiry date format, should be YYYY-MM-DD'}), 400
+        
+    if issue_date and expiry_date and issue_date > expiry_date:
+        return jsonify({'message': 'Issue date cannot be greater than expiry date'}), 400
+    
+    db.session.commit()
+    return jsonify({'message': 'Certificate updated'}), 200
+
+
+@app.route('/doctor/certificate/delete/<string:certificate_name>', methods=['PUT'])
+@login_required
+@role_required('doctor')
+def delete_certificate(certificate_name):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    doctor = Doctors.query.filter_by(user_id=current_user.user_id).first()
+    if not doctor:
+        return jsonify({'message': 'Doctor not found'}), 404
+
+    certificate = Certificates.query.filter_by(doctor_id=doctor.doctor_id, certificate_name=certificate_name).first()
+    if not certificate:
+        return jsonify({'message': 'Certificate not found'}), 404
+
+    if certificate:
+        certificate.is_deleted = True
+        db.session.commit()
+        return jsonify({'message': 'Certificate deleted'}), 200
+    return jsonify({'message': 'Certificate not found'}), 404
+        
+    

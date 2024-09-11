@@ -110,6 +110,7 @@ class Doctors(db.Model):
     
     def __repr__(self):
         return '<Doctor {}>'.format(self.first_name)
+
     
 class Patients(db.Model):
     __tablename__ = 'patients'
