@@ -1,14 +1,16 @@
 from flask import request, jsonify, session, redirect, url_for
 from app import app, db
 from flask_login import current_user, login_user, logout_user, login_required
-from .helper import role_required
+from .helper import role_required, create_user_folder, save_file
 from .models import Users, Doctors, Patients, Certificates
 import jwt
 import datetime
 from dotenv import load_dotenv
-import os
+# import os
 from config import Config
-from sqlalchemy.exc import IntegrityError, DataError
+from sqlalchemy.exc import IntegrityError
+from werkzeug.utils import secure_filename
+
 
 # load_dotenv()
 # SECRET_KEY = os.getenv('SECRET_KEY')
@@ -87,6 +89,8 @@ def login():
     user = Users.query.filter_by(username=data['username']).first()
     if user is None or not user.check_password(data['password']):
         return jsonify({'message': 'Invalid credentials'}), 401
+    
+    create_user_folder(user.username)
 
     login_user(user)
 
@@ -357,9 +361,12 @@ def create_certificate():
     if not doctor:
         return jsonify({'message': 'Doctor not found'}), 404
 
-    data = request.get_json()
+    data = request.form.to_dict()
     if not data.get('certificate_name') or not data.get('issue_date'):
         return jsonify({'message': 'Missing required data'}), 400
+    
+    if Certificates.query.filter_by(doctor_id=doctor.doctor_id, certificate_name=data['certificate_name']).first():
+        return jsonify({'message': 'Certificate already exists'}), 400
 
     expiry_date = None
 
@@ -370,6 +377,17 @@ def create_certificate():
             expiry_date = datetime.datetime.strptime(data['expiry_date'], '%Y-%m-%d').date()
         except ValueError:
             return jsonify({'message': 'Invalid expiry date format, should be YYYY-MM-DD'}), 400
+        
+    certificate_picture = None
+    if 'certificate_picture' in request.files:
+        file = request.files['certificate_picture']
+        if file.filename == '':
+            return jsonify({'message': 'No selected file'}), 400
+        if file and file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            # filename = secure_filename(file.filename)
+            certificate_picture = save_file(file, current_user.username)
+        else:
+            return jsonify({'message': 'Invalid file format, should be PNG or JPG'}), 400
 
     if issue_date and expiry_date and issue_date > expiry_date:
         return jsonify({'message': 'Issue date cannot be greater than expiry date'}), 400
@@ -377,9 +395,10 @@ def create_certificate():
     certificate = Certificates(
         doctor_id=doctor.doctor_id,
         certificate_name=data['certificate_name'],
-        certificate_number=data['certificate_number'],
+        certificate_number=data.get('certificate_number'),
         issue_date=issue_date,
-        expiry_date=expiry_date
+        expiry_date=expiry_date,
+        certificate_picture=certificate_picture
     )
     db.session.add(certificate)
     db.session.commit()
