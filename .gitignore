@@ -2,4 +2,4 @@
 __pycache__
 .env
 E-HealthWave.sql
-E-HealthWave/app/static/uploads/*
+/E-HealthWave/app/static/uploads/*
