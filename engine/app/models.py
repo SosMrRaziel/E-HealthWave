@@ -1,5 +1,5 @@
 from app import db
-from datetime import datetime
+from datetime import datetime, time
 from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
 import sqlalchemy as sa
@@ -81,6 +81,7 @@ class Doctors(db.Model):
     user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'), unique=True)
     user = db.relationship('Users', back_populates='doctor')
     Certificate = db.relationship('Certificates', backref='doctor', lazy='dynamic')
+    Working_days = db.relationship('Working_days', uselist=False, back_populates='doctor')
 
     def to_dict(self):
         return {
@@ -192,7 +193,34 @@ class Certificates(db.Model):
         }
     
     def __repr__(self):
-        return '<Certificate {}>'.format(self.certificate_name)
+        return '<Certificates {}>'.format(self.certificate_name)
+    
+class Working_days(db.Model):
+    __tablename__ = 'working_days'
+    working_day_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
+    doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
+    day = db.Column(sa.Enum('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'))
+    start_time = db.Column(db.Time, index=True)
+    end_time = db.Column(db.Time, index=True)
+    is_active = db.Column(db.Boolean, default=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_deleted = db.Column(db.Boolean, default=False)
+    doctor = db.relationship('Doctors', back_populates='Working_days')
+
+    def to_dict(self):
+        return {
+            'working_day_id': self.working_day_id,
+            'doctor_id': self.doctor_id,
+            'day': self.day,
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+            'is_active': self.is_active,
+            'updated_at': self.updated_at,
+            'is_deleted': self.is_deleted
+        }
+
+    def __repr__(self):
+        return '<Working_days {}>'.format(self.day)
     
 # class Appointments(db.Model):
 #     __tablename__ = 'appointments'
