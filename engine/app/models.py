@@ -13,12 +13,13 @@ class Users(db.Model, UserMixin):
     username = db.Column(db.String(25), index=True, unique=True)
     email = db.Column(db.String(120), index=True, unique=True)
     password_hash = db.Column(db.String(255))
-    role = db.Column(sa.Enum('patient', 'doctor'))
+    role = db.Column(sa.Enum('patient', 'doctor', 'red cross'))
     last_login = db.Column(db.DateTime, default=datetime.utcnow)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     _is_active = db.Column(db.Boolean, default=True)
     doctor = db.relationship('Doctors', uselist=False, back_populates='user')
     patient = db.relationship('Patients', uselist=False, back_populates='user')
+    red_cross = db.relationship('Red_cross', uselist=False, back_populates='user')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -111,6 +112,49 @@ class Doctors(db.Model):
     
     def __repr__(self):
         return '<Doctor {}>'.format(self.first_name)
+    
+class Red_cross(db.Model):
+    """ Red Cross model """
+    __tablename__ = 'red_cross'
+    red_cross_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
+    red_cross_name = db.Column(db.String(100), index=True)
+    red_cross_address = db.Column(db.String(120), index=True)
+    red_cross_city = db.Column(db.String(25), index=True)
+    red_cross_state = db.Column(db.String(25), index=True)
+    red_cross_zip_code = db.Column(db.String(10), index=True)
+    red_cross_phone = db.Column(db.String(15), index=True, unique=True)
+    red_cross_email = db.Column(db.String(120), index=True, unique=True)
+    red_cross_website = db.Column(db.String(255), index=True)
+    red_cross_logo = db.Column(db.String(255), index=True)
+    red_cross_banner = db.Column(db.String(255), index=True)
+    is_active = db.Column(db.Boolean, default=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_deleted = db.Column(db.Boolean, default=False)
+    user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'), unique=True)
+    user = db.relationship('Users', back_populates='red_cross')
+    Certificate = db.relationship('Certificates', backref='red_cross', lazy='dynamic')
+    Working_days = db.relationship('Working_days', uselist=False, back_populates='red_cross')
+
+
+    def to_dict(self):
+        return {
+            'red_cross_id': self.red_cross_id,
+            'red_cross_name': self.red_cross_name,
+            'red_cross_address': self.red_cross_address,
+            'red_cross_city': self.red_cross_city,
+            'red_cross_state': self.red_cross_state,
+            'red_cross_zip_code': self.red_cross_zip_code,
+            'red_cross_phone': self.red_cross_phone,
+            'red_cross_email': self.red_cross_email,
+            'red_cross_website': self.red_cross_website,
+            'red_cross_logo': self.red_cross_logo,
+            'is_active': self.is_active,
+            'updated_at': self.updated_at,
+            'is_deleted': self.is_deleted
+        }
+    
+    def __repr__(self):
+        return '<RedCross {}>'.format(self.red_cross_name)
 
     
 class Patients(db.Model):
@@ -168,6 +212,7 @@ class Certificates(db.Model):
     __tablename__ = 'certificates'
     certificate_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
     doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
+    red_cross_id = db.Column(db.String(60), db.ForeignKey('red_cross.red_cross_id'))
     certificate_name = db.Column(db.String(100), index=True)
     certificate_number = db.Column(db.String(50), index=True)
     issue_date = db.Column(db.DateTime)
@@ -199,6 +244,7 @@ class Working_days(db.Model):
     __tablename__ = 'working_days'
     working_day_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
     doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
+    red_cross_id = db.Column(db.String(60), db.ForeignKey('red_cross.red_cross_id'))
     day = db.Column(sa.Enum('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'))
     start_time = db.Column(db.Time, index=True)
     end_time = db.Column(db.Time, index=True)
@@ -206,6 +252,7 @@ class Working_days(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)
     doctor = db.relationship('Doctors', back_populates='Working_days')
+    red_cross = db.relationship('Red_cross', back_populates='Working_days')
 
     def to_dict(self):
         return {

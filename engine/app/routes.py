@@ -2,7 +2,7 @@ from flask import request, jsonify, session, redirect, url_for
 from app import app, db
 from flask_login import current_user, login_user, logout_user, login_required
 from .helper import role_required, create_user_folder, save_file
-from .models import Users, Doctors, Patients, Certificates, Working_days
+from .models import Users, Doctors, Red_cross,Patients, Certificates, Working_days
 import jwt
 import datetime
 from dotenv import load_dotenv
@@ -37,7 +37,7 @@ def register():
     if Users.query.filter_by(username=username).first():
         return jsonify({'message': 'Username already taken'}), 400
     
-    if role != 'patient' and role != 'doctor':
+    if role != 'patient' and role != 'doctor' and role != 'red cross':
         return jsonify({'message': 'Invalid role'}), 400
     
     # Create a new user
@@ -111,7 +111,7 @@ def logout():
 
     print('current_user:', current_user)
     logout_user()
-    session.clear()
+    # session.clear()
     return jsonify({'message': 'Logged out'}), 200
 
 
@@ -190,16 +190,16 @@ def update_doctor():
         if not doctor:
             return jsonify({'message': 'Doctor not found'}), 404
         
-        if 'first_name' in data:
+        if 'first_name' in data and data['first_name'].strip():
             doctor.first_name = data.get('first_name')
-        if 'last_name' in data:
+        if 'last_name' in data and data['last_name'].strip():
             doctor.last_name = data.get('last_name')
-        if 'gender' in data:
+        if 'gender' in data and data['gender'].strip():
             gender = data.get('gender')
             if gender and gender not in ['male', 'female']:
                 return jsonify({'message': 'Only male or female is allowed'}), 400
 
-        if 'date_of_birth' in data:
+        if 'date_of_birth' in data and data['date_of_birth'].strip():
             date_of_birth_str = data.get('date_of_birth')
             if date_of_birth_str:
                 try:
@@ -207,13 +207,13 @@ def update_doctor():
                     doctor.date_of_birth = date_of_birth
                 except ValueError:
                     return jsonify({'message': 'Invalid date format, should be YYYY-MM-DD'}), 400
-        if 'phone' in data:
+        if 'phone' in data and data['phone'].strip():
             doctor.phone = data.get('phone')
-        if 'address' in data:
+        if 'address' in data and data['address'].strip():
             doctor.address = data.get('address')
-        if 'zip_code' in data:
+        if 'zip_code' in data and data['zip_code'].strip():
             doctor.zip_code = data.get('zip_code')
-        if 'specialty' in data:
+        if 'specialty' in data and data['specialty'].strip():
             doctor.specialty = data.get('specialty')
         
         if 'profile_picture' in request.files:
@@ -263,6 +263,137 @@ def doctor_profile(username):
     }), 200
 
 
+@app.route('/redcross/register', methods=['POST'])
+@login_required
+@role_required('red cross')
+def register_red_cross():
+    if not current_user.is_authenticated:
+            return jsonify({'message': 'You must be logged in to access this page'}), 401
+    
+    try:
+        data = request.form.to_dict()
+        if not data['red_cross_name'] or not data['red_cross_phone'] or not data['red_cross_address'] or not data['red_cross_zip_code']:
+            return jsonify({'message': 'Missing data'}), 400
+        
+        red_cross_logo = None
+        if 'red_cross_logo' in request.files and not Red_cross.query.filter_by(user_id=current_user.user_id).first():
+            file = request.files['red_cross_logo']
+            if file.filename == '':
+                return jsonify({'message': 'No selected file'}), 400
+            if file and file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+
+                red_cross_logo = save_file(file, current_user.username)
+            else:
+                return jsonify({'message': 'Invalid file format, should be PNG or JPG'}), 400
+            
+        red_cross_banner = None
+        if 'red_cross_banner' in request.files and not Red_cross.query.filter_by(user_id=current_user.user_id).first():
+            file = request.files['red_cross_banner']
+            if file.filename == '':
+                return jsonify({'message': 'No selected file'}), 400
+            if file and file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+
+                red_cross_banner = save_file(file, current_user.username)
+            else:
+                return jsonify({'message': 'Invalid file format, should be PNG or JPG'}), 400
+            
+        red_cross = Red_cross (
+            user_id=current_user.user_id,
+            red_cross_name=data['red_cross_name'],
+            red_cross_phone=data['red_cross_phone'],
+            red_cross_address=data['red_cross_address'],
+            red_cross_zip_code=data['red_cross_zip_code'],
+            red_cross_logo=red_cross_logo,
+            red_cross_banner=red_cross_banner
+        )
+        db.session.add(red_cross)
+        db.session.commit()
+        return jsonify({'message': 'Red Cross registered'}), 201
+    except IntegrityError:
+        return jsonify({'message': 'Red Cross already registered'}), 400
+
+
+@app.route('/redcross/update', methods=['PUT'])
+@login_required
+@role_required('red cross')
+def update_red_cross():
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+    
+    data = request.form.to_dict()
+    try:
+        red_cross = Red_cross.query.filter_by(user_id=current_user.user_id).first()
+        if not red_cross:
+            return jsonify({'message': 'Red Cross not found'}), 404
+        
+        if 'red_cross_name' in data and data['red_cross_name'].strip():
+            red_cross.red_cross_name = data.get('red_cross_name')
+        if 'red_cross_phone' in data and data['red_cross_phone'].strip():
+            red_cross.red_cross_phone = data.get('red_cross_phone')
+        if 'red_cross_address' in data and data['red_cross_address'].strip():
+            red_cross.red_cross_address = data.get('red_cross_address')
+        if 'red_cross_zip_code' in data and data['red_cross_zip_code'].strip():
+            red_cross.red_cross_zip_code = data.get('red_cross_zip_code')
+        
+        if 'red_cross_logo' in request.files:
+            file = request.files['red_cross_logo']
+            if file.filename != '' and file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                red_cross.red_cross_logo = save_file(file, current_user.username)
+            elif file.filename != '':
+                return jsonify({'message': 'Invalid file format, should be PNG or JPG'}), 400
+            
+        if 'red_cross_banner' in request.files:
+            file = request.files['red_cross_banner']
+            if file.filename != '' and file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                red_cross.red_cross_banner = save_file(file, current_user.username)
+            elif file.filename != '':
+                return jsonify({'message': 'Invalid file format, should be PNG or JPG'}), 400
+
+        db.session.commit()
+        return jsonify({'message': 'Red Cross updated'}), 200
+    
+    except IntegrityError:
+        return jsonify({'message': 'Red Cross already registered'}), 400
+    
+
+@app.route('/redcross/profile/<string:username>', methods=['GET'])
+@login_required
+@role_required('red cross')
+def red_cross_profile(username):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+    
+    red_cross = Red_cross.query.join(Users).filter(Users.username == username).first()
+    if not red_cross:
+        return jsonify({'message': 'Red Cross not found'}), 404
+    
+    if red_cross.is_deleted == True:
+        return jsonify({'message': 'Red Cross not found'}), 404
+    
+    return jsonify({
+        'red_cross_name': red_cross.red_cross_name,
+        'red_cross_phone': red_cross.red_cross_phone,
+        'red_cross_address': red_cross.red_cross_address,
+        'red_cross_zip_code': red_cross.red_cross_zip_code,
+        'is_active': red_cross.user.is_active
+    }), 200
+
+
+@app.route('/redcross/delete', methods=['PUT'])
+@login_required
+@role_required('red cross')
+def delete_red_cross():
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+    
+    username = current_user.username
+    red_cross = Red_cross.query.join(Users).filter(Users.username == username).first()
+
+    if red_cross:
+        red_cross.is_deleted = True
+        db.session.commit()
+        return jsonify({'message': 'Red Cross deleted'}), 200
+    return jsonify({'message': 'Red Cross not found'}), 404
 
 
 @app.route('/patient/register', methods=['POST'])
@@ -338,16 +469,16 @@ def update_patient():
         if not patient:
             return jsonify({'message': 'Patient not found'}), 404
         
-        if 'first_name' in data:
+        if 'first_name' in data and data['first_name'].strip():
             patient.first_name = data.get('first_name')
-        if 'last_name' in data:
+        if 'last_name' in data and data['last_name'].strip():
             patient.last_name = data.get('last_name')
-        if 'gender' in data:
+        if 'gender' in data and data['gender'].strip():
             gender = data.get('gender')
             if gender and gender not in ['male', 'female']:
                 return jsonify({'message': 'Only male or female is allowed'}), 400
 
-        if 'date_of_birth' in data:
+        if 'date_of_birth' in data and data['date_of_birth'].strip():
             date_of_birth_str = data.get('date_of_birth')
             if date_of_birth_str:
                 try:
@@ -355,11 +486,11 @@ def update_patient():
                     patient.date_of_birth = date_of_birth
                 except ValueError:
                     return jsonify({'message': 'Invalid date format, should be YYYY-MM-DD'}), 400
-        if 'phone' in data:
+        if 'phone' in data and data['phone'].strip():
             patient.phone = data.get('phone')
-        if 'address' in data:
+        if 'address' in data and data['address'].strip():
             patient.address = data.get('address')
-        if 'zip_code' in data:
+        if 'zip_code' in data and data['zip_code'].strip():
             patient.zip_code = data.get('zip_code')
 
         if 'profile_picture' in request.files:
@@ -634,6 +765,73 @@ def create_workdays():
     db.session.commit()
     return jsonify({'message': 'Workday created'}), 201
 
+
+@app.route('/redcross/certificate/create', methods=['POST'])
+@login_required
+@role_required('red cross')
+def create_certificate_red_cross():
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    # Check if the current user is a red cross
+    red_cross = Red_cross.query.filter_by(user_id=current_user.user_id).first()
+    if not red_cross:
+        return jsonify({'message': 'Red Cross not found'}), 404
+
+    data = request.form.to_dict()
+    if not data.get('certificate_name') or not data.get('issue_date'):
+        return jsonify({'message': 'Missing required data'}), 400
+    
+    if Certificates.query.filter_by(red_cross_id=red_cross.red_cross_id, certificate_name=data['certificate_name']).first():
+        return jsonify({'message': 'Certificate already exists'}), 400
+
+    expiry_date = None
+
+    issue_date = datetime.datetime.strptime(data['issue_date'], '%Y-%m-%d').date()
+
+    if data.get('expiry_date'):
+        try:
+            expiry_date = datetime.datetime.strptime(data['expiry_date'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'message': 'Invalid expiry date format, should be YYYY-MM-DD'}), 400
+        
+    certificate_picture = None
+    if 'certificate_picture' in request.files:
+        file = request.files['certificate_picture']
+        if file.filename == '':
+            return jsonify({'message': 'No selected file'}), 400
+        if file and file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            certificate_picture = save_file(file, current_user.username)
+        else:
+            return jsonify({'message': 'Invalid file format, should be PNG or JPG'}), 400
+
+    if issue_date and expiry_date and issue_date > expiry_date:
+        return jsonify({'message': 'Issue date cannot be greater than expiry date'}), 400
+    
+    certificate_picture = None
+
+    if 'certificate_picture' in request.files and not Certificates.query.filter_by(red_cross_id=red_cross.red_cross_id, certificate_name=data['certificate_name']).first():
+        file = request.files['certificate_picture']
+        if file.filename == '':
+            return jsonify({'message': 'No selected file'}), 400
+        if file and file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            certificate_picture = save_file(file, current_user.username)
+        else:
+            return jsonify({'message': 'Invalid file format, should be PNG or JPG'}), 400
+        
+    certificate = Certificates(
+        red_cross_id=red_cross.red_cross_id,
+        certificate_name=data['certificate_name'],
+        certificate_number=data.get('certificate_number'),
+        issue_date=issue_date,
+        expiry_date=expiry_date,
+        certificate_picture=certificate_picture
+    )
+    db.session.add(certificate)
+    db.session.commit()
+    return jsonify({'message': 'Certificate created'}), 201
+
+
 @app.route('/doctor/workdays/update/<string:day>', methods=['PUT'])
 @login_required
 @role_required('doctor')
@@ -643,7 +841,7 @@ def update_workdays(day):
 
     doctor = Doctors.query.filter_by(user_id=current_user.user_id).first()
     if not doctor:
-        return jsonify({'message': 'Doctor not found'}), 404
+        return jsonify({'message': 'Workday not found'}), 404
 
     workday = Working_days.query.filter_by(doctor_id=doctor.doctor_id, day=day).first()
     if not workday:
@@ -662,4 +860,50 @@ def update_workdays(day):
     workday.is_active = is_active
     db.session.commit()
     return jsonify({'message': 'Workday updated'}), 200
+
+@app.route('/doctor/workdays/active/<string:day>', methods=['PUT'])
+@login_required
+@role_required('doctor')
+def active_workdays(day):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    doctor = Doctors.query.filter_by(user_id=current_user.user_id).first()
+    if not doctor:
+        return jsonify({'message': 'Workday not found'}), 404
+
+    workday = Working_days.query.filter_by(doctor_id=doctor.doctor_id, day=day).first()
+    if not workday:
+        return jsonify({'message': 'Workday not found'}), 404
+
+    if workday.is_active == True:
+        workday.is_active = False
+        db.session.commit()
+        return jsonify({'message': 'Workday activated'}), 200
+    workday.is_active = True
+    db.session.commit()
+    return jsonify({'message': 'Workday deactivated'}), 200
+
+@app.route('/doctor/<string:username>/workdays', methods=['GET'])
+@login_required
+def list_workdays(username):
+    doctor = Doctors.query.join(Users).filter(Users.username == username).first()
+    if not doctor:
+        return jsonify({'message': 'Doctor not found'}), 404
+
+    workdays = Working_days.query.filter_by(doctor_id=doctor.doctor_id).all()
+    if not workdays:
+        return jsonify({'message': 'No workdays found'}), 404
+
+    workday_list = []
+    for workday in workdays:
+        workday_list.append({
+            'day': workday.day,
+            'start_time': workday.start_time.strftime('%H:%M:%S'),
+            'end_time': workday.end_time.strftime('%H:%M:%S'),
+            'is_active': workday.is_active
+        })
+    return jsonify(workday_list), 200
+    
+
 

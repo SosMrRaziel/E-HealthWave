@@ -3,4 +3,4 @@ __pycache__
 .env
 E-HealthWave.sql
 app/static/uploads/*
-migrations
+engine/migrations
