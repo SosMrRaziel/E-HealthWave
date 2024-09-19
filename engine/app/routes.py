@@ -766,6 +766,83 @@ def create_workdays():
     return jsonify({'message': 'Workday created'}), 201
 
 
+
+@app.route('/doctor/workdays/update/<string:day>', methods=['PUT'])
+@login_required
+@role_required('doctor')
+def update_workdays(day):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    doctor = Doctors.query.filter_by(user_id=current_user.user_id).first()
+    if not doctor:
+        return jsonify({'message': 'Workday not found'}), 404
+
+    workday = Working_days.query.filter_by(doctor_id=doctor.doctor_id, day=day).first()
+    if not workday:
+        return jsonify({'message': 'Workday not found'}), 404
+
+    data = request.get_json()
+    if not data.get('start_time') or not data.get('end_time') or not data.get('is_active'):
+        return jsonify({'message': 'Missing required data'}), 400
+
+    start_time = data.get('start_time')
+    end_time = data.get('end_time')
+    is_active = data.get('is_active').lower() == 'true'
+
+    workday.start_time = start_time
+    workday.end_time = end_time
+    workday.is_active = is_active
+    db.session.commit()
+    return jsonify({'message': 'Workday updated'}), 200
+
+
+@app.route('/doctor/workdays/active/<string:day>', methods=['PUT'])
+@login_required
+@role_required('doctor')
+def active_workdays(day):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    doctor = Doctors.query.filter_by(user_id=current_user.user_id).first()
+    if not doctor:
+        return jsonify({'message': 'Workday not found'}), 404
+
+    workday = Working_days.query.filter_by(doctor_id=doctor.doctor_id, day=day).first()
+    if not workday:
+        return jsonify({'message': 'Workday not found'}), 404
+
+    if workday.is_active == True:
+        workday.is_active = False
+        db.session.commit()
+        return jsonify({'message': 'Workday activated'}), 200
+    workday.is_active = True
+    db.session.commit()
+    return jsonify({'message': 'Workday deactivated'}), 200
+
+@app.route('/doctor/<string:username>/workdays', methods=['GET'])
+@login_required
+def list_workdays(username):
+    doctor = Doctors.query.join(Users).filter(Users.username == username).first()
+    if not doctor:
+        return jsonify({'message': 'Doctor not found'}), 404
+
+    workdays = Working_days.query.filter_by(doctor_id=doctor.doctor_id).all()
+    if not workdays:
+        return jsonify({'message': 'No workdays found'}), 404
+
+    workday_list = []
+    for workday in workdays:
+        workday_list.append({
+            'day': workday.day,
+            'start_time': workday.start_time.strftime('%H:%M:%S'),
+            'end_time': workday.end_time.strftime('%H:%M:%S'),
+            'is_active': workday.is_active
+        })
+    return jsonify(workday_list), 200
+    
+
+
 @app.route('/redcross/certificate/create', methods=['POST'])
 @login_required
 @role_required('red cross')
@@ -832,18 +909,160 @@ def create_certificate_red_cross():
     return jsonify({'message': 'Certificate created'}), 201
 
 
-@app.route('/doctor/workdays/update/<string:day>', methods=['PUT'])
+@app.route('/redcross/certificate/update/<string:certificate_name>', methods=['PUT'])
 @login_required
-@role_required('doctor')
-def update_workdays(day):
+@role_required('red cross')
+def update_certificate_red_cross(certificate_name):
     if not current_user.is_authenticated:
         return jsonify({'message': 'You must be logged in to access this page'}), 401
 
-    doctor = Doctors.query.filter_by(user_id=current_user.user_id).first()
-    if not doctor:
+    red_cross = Red_cross.query.filter_by(user_id=current_user.user_id).first()
+    if not red_cross:
+        return jsonify({'message': 'Red Cross not found'}), 404
+
+    certificate = Certificates.query.filter_by(red_cross_id=red_cross.red_cross_id, certificate_name=certificate_name).first()
+    if not certificate:
+        return jsonify({'message': 'Certificate not found'}), 404
+
+    data = request.form.to_dict()
+    if not data['certificate_name']:
+        return jsonify({'message': 'Missing required data'}), 400
+
+    if 'certificate_number' in data and data.get('certificate_number'):
+        certificate.certificate_number = data.get('certificate_number')
+
+    issue_date = None
+    expiry_date = None
+
+    if 'issue_date' in data:
+        issue_date_str = data.get('issue_date')
+        if issue_date_str:
+            try:
+                issue_date = datetime.datetime.strptime(issue_date_str, '%Y-%m-%d').date()
+                certificate.issue_date = issue_date
+            except ValueError:
+                return jsonify({'message': 'Invalid issue date format, should be YYYY-MM-DD'}), 400
+        
+    if 'expiry_date' in data:
+        expiry_date_str = data.get('expiry_date')
+        if expiry_date_str:
+            try:
+                expiry_date = datetime.datetime.strptime(expiry_date_str, '%Y-%m-%d').date()
+                certificate.expiry_date = expiry_date
+            except ValueError:
+                return jsonify({'message': 'Invalid expiry date format, should be YYYY-MM-DD'}), 400
+
+        
+    if issue_date and expiry_date and issue_date > expiry_date:
+        return jsonify({'message': 'Issue date cannot be greater than expiry date'}), 400
+    
+    if 'certificate_picture' in request.files:
+        file = request.files['certificate_picture']
+        if file.filename != '' and file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            certificate.certificate_picture = save_file(file, current_user.username)
+        elif file.filename != '':
+            return jsonify({'message': 'Invalid file format, should be PNG or JPG'}), 400
+    
+    db.session.commit()
+    return jsonify({'message': 'Certificate updated'}), 200
+
+
+
+@app.route('/redcross/certificate/delete/<string:certificate_name>', methods=['PUT'])
+@login_required
+@role_required('red cross')
+def delete_certificate_red_cross(certificate_name):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    red_cross = Red_cross.query.filter_by(user_id=current_user.user_id).first()
+    if not red_cross:
+        return jsonify({'message': 'Red Cross not found'}), 404
+
+    certificate = Certificates.query.filter_by(red_cross_id=red_cross.red_cross_id, certificate_name=certificate_name).first()
+    if not certificate:
+        return jsonify({'message': 'Certificate not found'}), 404
+
+    if certificate:
+        certificate.is_deleted = True
+        db.session.commit()
+        return jsonify({'message': 'Certificate deleted'}), 200
+    return jsonify({'message': 'Certificate not found'}), 404
+
+
+@app.route('/redcross/<string:username>/certificates', methods=['GET'])
+@login_required
+@role_required('red cross')
+def list_certificates_red_cross(username):
+    red_cross = Red_cross.query.join(Users).filter(Users.username == username).first()
+    if not red_cross:
+        return jsonify({'message': 'Red Cross not found'}), 404
+
+    certificates = Certificates.query.filter_by(red_cross_id=red_cross.red_cross_id).all()
+    if not certificates:
+        return jsonify({'message': 'No certificates found'}), 404
+
+    certificate_list = []
+    for certificate in certificates:
+        certificate_list.append({
+            'certificate_name': certificate.certificate_name,
+            'certificate_number': certificate.certificate_number,
+            'issue_date': certificate.issue_date,
+            'expiry_date': certificate.expiry_date,
+            'certificate_picture': certificate.certificate_picture
+        })
+    return jsonify(certificate_list), 200
+
+
+@app.route('/redcross/workdays/create', methods=['POST'])
+@login_required
+@role_required('red cross')
+def create_workdays_red_cross():
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    red_cross = Red_cross.query.filter_by(user_id=current_user.user_id).first()
+    if not red_cross:
+        return jsonify({'message': 'Red Cross not found'}), 404
+
+    data = request.get_json()
+    print(data)
+    if not data.get('day') or not data.get('start_time') or not data.get('end_time'):
+        return jsonify({'message': 'Missing required data'}), 400
+
+    day = data.get('day').capitalize()
+    start_time = data.get('start_time')
+    end_time = data.get('end_time')
+
+    if day not in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
+        return jsonify({'message': 'Invalid day'}), 400
+
+    if Working_days.query.filter_by(red_cross_id=red_cross.red_cross_id, day=day).first():
+        return jsonify({'message': 'Day already exists'}), 400
+
+    workday = Working_days(
+        red_cross_id=red_cross.red_cross_id,
+        day=day,
+        start_time=start_time,
+        end_time=end_time
+    )
+    db.session.add(workday)
+    db.session.commit()
+    return jsonify({'message': 'Workday created'}), 201
+
+
+@app.route('/redcross/workdays/update/<string:day>', methods=['PUT'])
+@login_required
+@role_required('red cross')
+def update_workdays_red_cross(day):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    red_cross = Red_cross.query.filter_by(user_id=current_user.user_id).first()
+    if not red_cross:
         return jsonify({'message': 'Workday not found'}), 404
 
-    workday = Working_days.query.filter_by(doctor_id=doctor.doctor_id, day=day).first()
+    workday = Working_days.query.filter_by(red_cross_id=red_cross.red_cross_id, day=day).first()
     if not workday:
         return jsonify({'message': 'Workday not found'}), 404
 
@@ -861,18 +1080,19 @@ def update_workdays(day):
     db.session.commit()
     return jsonify({'message': 'Workday updated'}), 200
 
-@app.route('/doctor/workdays/active/<string:day>', methods=['PUT'])
+
+@app.route('/redcross/workdays/active/<string:day>', methods=['PUT'])
 @login_required
-@role_required('doctor')
-def active_workdays(day):
+@role_required('red cross')
+def active_workdays_red_cross(day):
     if not current_user.is_authenticated:
         return jsonify({'message': 'You must be logged in to access this page'}), 401
 
-    doctor = Doctors.query.filter_by(user_id=current_user.user_id).first()
-    if not doctor:
+    red_cross = Red_cross.query.filter_by(user_id=current_user.user_id).first()
+    if not red_cross:
         return jsonify({'message': 'Workday not found'}), 404
 
-    workday = Working_days.query.filter_by(doctor_id=doctor.doctor_id, day=day).first()
+    workday = Working_days.query.filter_by(red_cross_id=red_cross.red_cross_id, day=day).first()
     if not workday:
         return jsonify({'message': 'Workday not found'}), 404
 
@@ -884,14 +1104,16 @@ def active_workdays(day):
     db.session.commit()
     return jsonify({'message': 'Workday deactivated'}), 200
 
-@app.route('/doctor/<string:username>/workdays', methods=['GET'])
-@login_required
-def list_workdays(username):
-    doctor = Doctors.query.join(Users).filter(Users.username == username).first()
-    if not doctor:
-        return jsonify({'message': 'Doctor not found'}), 404
 
-    workdays = Working_days.query.filter_by(doctor_id=doctor.doctor_id).all()
+@app.route('/redcross/<string:username>/workdays', methods=['GET'])
+@login_required
+@role_required('red cross')
+def list_workdays_red_cross(username):
+    red_cross = Red_cross.query.join(Users).filter(Users.username == username).first()
+    if not red_cross:
+        return jsonify({'message': 'Red Cross not found'}), 404
+
+    workdays = Working_days.query.filter_by(red_cross_id=red_cross.red_cross_id).all()
     if not workdays:
         return jsonify({'message': 'No workdays found'}), 404
 
@@ -904,6 +1126,5 @@ def list_workdays(username):
             'is_active': workday.is_active
         })
     return jsonify(workday_list), 200
-    
 
 
