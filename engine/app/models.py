@@ -275,25 +275,31 @@ class Appointments(db.Model):
     patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
     doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
     red_cross_id = db.Column(db.String(60), db.ForeignKey('red_cross.red_cross_id'))
+    appointment_type = db.Column(sa.Enum('in person', 'telemedicine'), default='in-person')
+    appointment_name = db.Column(db.String(100), index=True)
+    appointment_description = db.Column(db.String(500), index=True)
     appointment_date = db.Column(db.DateTime)
     appointment_time = db.Column(db.String(10), index=True)
-    appointment_type = db.Column(sa.Enum('in-person', 'telemedicine'), default='in-person')
     appointment_status = db.Column(sa.Enum('scheduled', 'cancelled', 'completed'), default='scheduled')
-    is_active = db.Column(db.Boolean, default=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
     is_deleted = db.Column(db.Boolean, default=False)
-    patient = db.relationship('Patients', backref='appointment', lazy='dynamic')
-    doctor = db.relationship('Doctors', backref='appointment', lazy='dynamic')
-    Red_cross = db.relationship('Red_cross', backref='appointment', lazy='dynamic')
+    # patient = db.relationship('Patients', backref='appointment', lazy='dynamic')
+    # doctor = db.relationship('Doctors', backref='appointment', lazy='dynamic')
+    # Red_cross = db.relationship('Red_cross', backref='appointment', lazy='dynamic')
 
     def to_dict(self):
         return {
             'appointment_id': self.appointment_id,
             'patient_id': self.patient_id,
             'doctor_id': self.doctor_id,
+            'red_cross_id': self.red_cross_id,
+            'appointment_type': self.appointment_type,
+            'appointment_name': self.appointment_name,
+            'appointment_description': self.appointment_description,
             'appointment_date': self.appointment_date,
             'appointment_time': self.appointment_time,
-            'appointment_type': self.appointment_type,
             'appointment_status': self.appointment_status,
             'is_active': self.is_active,
             'updated_at': self.updated_at,

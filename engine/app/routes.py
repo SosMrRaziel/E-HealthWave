@@ -2,7 +2,7 @@ from flask import request, jsonify, session, redirect, url_for
 from app import app, db
 from flask_login import current_user, login_user, logout_user, login_required
 from .helper import role_required, create_user_folder, save_file
-from .models import Users, Doctors, Red_cross,Patients, Certificates, Working_days
+from .models import Users, Doctors, Red_cross,Patients, Certificates, Working_days, Appointments
 import jwt
 import datetime
 from dotenv import load_dotenv
@@ -840,6 +840,197 @@ def list_workdays(username):
             'is_active': workday.is_active
         })
     return jsonify(workday_list), 200
+
+
+@app.route('/doctor/appointment/create', methods=['POST'])
+@login_required
+@role_required('doctor')
+def create_appointment():
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    doctor = Doctors.query.filter_by(user_id=current_user.user_id).first()
+    if not doctor:
+        return jsonify({'message': 'Doctor not found'}), 404
+
+    data = request.get_json()
+    required_fields = ['appointment_name', 'appointment_type', 'appointment_date', 'appointment_time', 'username']
+    if not all(field in data for field in required_fields):
+        return jsonify({'message': 'Missing required data'}), 400
+
+    patient = Patients.query.join(Users).filter(Users.username == data['username']).first()
+    if not patient:
+        return jsonify({'message': 'Patient not found'}), 404
+
+    try:
+        appointment_date = datetime.datetime.strptime(data['appointment_date'], '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'message': 'Invalid date format, should be YYYY-MM-DD'}), 400
+    try:
+        appointment_time = datetime.datetime.strptime(data['appointment_time'], '%H:%M:%S').time()
+    except ValueError:
+        return jsonify({'message': 'Invalid time format, should be HH:MM:SS'}), 400
+
+    if Appointments.query.filter_by(doctor_id=doctor.doctor_id, patient_id=patient.patient_id, appointment_date=appointment_date, appointment_time=appointment_time).first():
+        return jsonify({'message': 'Appointment already exists'}), 400
+
+    appointment = Appointments(
+        doctor_id=doctor.doctor_id,
+        patient_id=patient.patient_id,
+        appointment_type=data['appointment_type'],
+        appointment_name=data['appointment_name'],
+        appointment_description=data.get('appointment_description'),
+        appointment_date=appointment_date,
+        appointment_time=appointment_time
+    )
+    db.session.add(appointment)
+    db.session.commit()
+    return jsonify({'message': 'Appointment created'}), 201
+
+
+@app.route('/doctor/appointment/update/<string:appointment_name>', methods=['PUT'])
+@login_required
+@role_required('doctor')
+def update_appointment(appointment_name):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    doctor = Doctors.query.filter_by(user_id=current_user.user_id).first()
+    if not doctor:
+        return jsonify({'message': 'Doctor not found'}), 404
+
+    appointment = Appointments.query.filter_by(doctor_id=doctor.doctor_id, appointment_name=appointment_name).first()
+    if not appointment:
+        return jsonify({'message': 'Appointment not found'}), 404
+
+    data = request.get_json()
+    if not data.get('appointment_name'):
+        return jsonify({'message': 'Missing required data: appointment_name'}), 400
+
+    appointment.appointment_name = data.get('appointment_name')
+
+    if data.get('appointment_type'):
+        appointment.appointment_type = data.get('appointment_type')
+    if data.get('appointment_description'):
+        appointment.appointment_description = data.get('appointment_description')
+    if data.get('appointment_date'):
+        try:
+            appointment_date = datetime.strptime(data['appointment_date'], '%Y-%m-%d').date()
+            appointment.appointment_date = appointment_date
+        except ValueError:
+            return jsonify({'message': 'Invalid date format, should be YYYY-MM-DD'}), 400
+    if data.get('appointment_time'):
+        try:
+            appointment_time = datetime.strptime(data['appointment_time'], '%H:%M:%S').time()
+            appointment.appointment_time = appointment_time
+        except ValueError:
+            return jsonify({'message': 'Invalid time format, should be HH:MM:SS'}), 400
+
+    appointment.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'message': 'Appointment updated'}), 200
+
+
+@app.route('/doctor/appointment/active/<string:appointment_name>', methods=['PUT'])
+@login_required
+@role_required('doctor')
+def active_appointment(appointment_name):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    doctor = Doctors.query.filter_by(user_id=current_user.user_id).first()
+    if not doctor:
+        return jsonify({'message': 'Doctor not found'}), 404
+
+    appointment = Appointments.query.filter_by(doctor_id=doctor.doctor_id, appointment_name=appointment_name).first()
+    if not appointment:
+        return jsonify({'message': 'Appointment not found'}), 404
+
+    if appointment.is_active == True:
+        appointment.is_active = False
+        db.session.commit()
+        return jsonify({'message': 'Appointment activated'}), 200
+    appointment.is_active = True
+    appointment.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'message': 'Appointment deactivated'}), 200
+
+
+@app.route('/doctor/appointment/delete/<string:appointment_name>', methods=['PUT'])
+@login_required
+@role_required('doctor')
+def delete_appointment(appointment_name):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    doctor = Doctors.query.filter_by(user_id=current_user.user_id).first()
+    if not doctor:
+        return jsonify({'message': 'Doctor not found'}), 404
+
+    appointment = Appointments.query.filter_by(doctor_id=doctor.doctor_id, appointment_name=appointment_name).first()
+    if not appointment:
+        return jsonify({'message': 'Appointment not found'}), 404
+
+    if appointment:
+        appointment.is_deleted = True
+        appointment.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({'message': 'Appointment deleted'}), 200
+    return jsonify({'message': 'Appointment not found'}), 404
+
+
+
+@app.route('/doctor/<string:username>/appointments', methods=['GET'])
+@login_required
+@role_required('doctor')
+def list_appointments(username):
+    doctor = Doctors.query.join(Users).filter(Users.username == username).first()
+    if not doctor:
+        return jsonify({'message': 'Doctor not found'}), 404
+
+    appointments = Appointments.query.filter_by(doctor_id=doctor.doctor_id).all()
+    if not appointments:
+        return jsonify({'message': 'No appointments found'}), 404
+
+    appointment_list = []
+    for appointment in appointments:
+        appointment_list.append({
+            'appointment_name': appointment.appointment_name,
+            'appointment_type': appointment.appointment_type,
+            'appointment_description': appointment.appointment_description,
+            'appointment_date': appointment.appointment_date,
+            'appointment_time': appointment.appointment_time,
+            'is_active': appointment.is_active
+        })
+    return jsonify(appointment_list), 200
+
+
+@app.route('/patient/appointments', methods=['GET'])
+@login_required
+@role_required('patient')
+def list_patient_appointments():
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    patient = Patients.query.filter_by(user_id=current_user.user_id).first()
+    if not patient:
+        return jsonify({'message': 'Patient not found'}), 404
+
+    appointments = Appointments.query.filter_by(patient_id=patient.patient_id).all()
+    if not appointments:
+        return jsonify({'message': 'No appointments found'}), 404
+
+    appointment_list = []
+    for appointment in appointments:
+        appointment_list.append({
+            'appointment_name': appointment.appointment_name,
+            'appointment_type': appointment.appointment_type,
+            'appointment_description': appointment.appointment_description,
+            'appointment_date': appointment.appointment_date,
+            'appointment_time': appointment.appointment_time,
+            'is_active': appointment.is_active
+        })
+    return jsonify(appointment_list), 200
     
 
 
