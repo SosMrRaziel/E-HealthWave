@@ -44,5 +44,5 @@ def load_user(user_id):
 
 
 
-from app import models, routes
+from app import models, routes, doctor_routes, patient_routes, redcross_routes
 

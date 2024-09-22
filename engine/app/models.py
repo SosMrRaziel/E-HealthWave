@@ -312,6 +312,7 @@ class Appointments(db.Model):
 # class Documents(db.Model):
 #     __tablename__ = 'documents'
 #     document_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
+#     appointment_id = db.Column(db.String(60), db.ForeignKey('appointments.appointment_id'))
 #     patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
 #     doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
 #     document_name = db.Column(db.String(100), index=True)
