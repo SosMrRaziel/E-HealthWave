@@ -285,6 +285,7 @@ class Appointments(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
     is_deleted = db.Column(db.Boolean, default=False)
+    document = db.relationship('Documents', backref='appointment', lazy='dynamic')
     # patient = db.relationship('Patients', backref='appointment', lazy='dynamic')
     # doctor = db.relationship('Doctors', backref='appointment', lazy='dynamic')
     # Red_cross = db.relationship('Red_cross', backref='appointment', lazy='dynamic')
@@ -309,38 +310,40 @@ class Appointments(db.Model):
     def __repr__(self):
         return '<Appointment {}>'.format(self.appointment_id)
     
-# class Documents(db.Model):
-#     __tablename__ = 'documents'
-#     document_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
-#     appointment_id = db.Column(db.String(60), db.ForeignKey('appointments.appointment_id'))
-#     patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
-#     doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
-#     document_name = db.Column(db.String(100), index=True)
-#     picture = db.Column(db.String(160), index=True)
-#     document_type = db.Column(db.String(50), index=True)
-#     document_url = db.Column(db.String(255), index=True)
-#     is_active = db.Column(db.Boolean, default=True)
-#     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
-#     is_deleted = db.Column(db.Boolean, default=False)
-#     patient = db.relationship('Patients', backref='document', lazy='dynamic')
-#     doctor = db.relationship('Doctors', backref='document', lazy='dynamic')
+class Documents(db.Model):
+    __tablename__ = 'documents'
+    document_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
+    appointment_id = db.Column(db.String(60), db.ForeignKey('appointments.appointment_id'))
+    # patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
+    # doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
+    document_name = db.Column(db.String(100), index=True)
+    document_type = db.Column(db.String(50), index=True)
+    document_description = db.Column(db.String(255), index=True)
+    document_file = db.Column(db.String(255), index=True)
+    document_url = db.Column(db.String(255), index=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_deleted = db.Column(db.Boolean, default=False)
+    # patient = db.relationship('Patients', backref='document', lazy='dynamic')
+    # doctor = db.relationship('Doctors', backref='document', lazy='dynamic')
 
-#     def to_dict(self):
-#         return {
-#             'document_id': self.document_id,
-#             'patient_id': self.patient_id,
-#             'doctor_id': self.doctor_id,
-#             'document_name': self.document_name,
-#             'picture': self.picture,
-#             'document_type': self.document_type,
-#             'document_url': self.document_url,
-#             'is_active': self.is_active,
-#             'updated_at': self.updated_at,
-#             'is_deleted': self.is_deleted
-#         }
+    def to_dict(self):
+        return {
+            'document_id': self.document_id,
+            'appointment_id': self.appointment_id,
+            'document_name': self.document_name,
+            'document_description': self.document_description,
+            'document_file': self.document_file,
+            'document_type': self.document_type,
+            'document_url': self.document_url,
+            'is_active': self.is_active,
+            'updated_at': self.updated_at,
+            'is_deleted': self.is_deleted
+        }
     
-#     def __repr__(self):
-#         return '<Document {}>'.format(self.document_name)
+    def __repr__(self):
+        return '<Document {}>'.format(self.document_name)
     
 # class Prescriptions(db.Model):
 #     __tablename__ = 'prescriptions'
@@ -580,4 +583,3 @@ class Appointments(db.Model):
     
 #     def __repr__(self):
 #         return '<UserIP {}>'.format(self.user_ip_id)
-
