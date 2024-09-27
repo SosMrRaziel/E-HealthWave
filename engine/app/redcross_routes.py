@@ -3,7 +3,7 @@ from flask import request, jsonify, session
 from .helper import role_required, save_file
 from datetime import datetime
 from app import app, db
-from .models import Users, Red_cross, Certificates, Working_days, Appointments, Patients
+from .models import Users, Red_cross, Certificates, Working_days, Appointments, Patients, Documents
 from sqlalchemy.exc import IntegrityError
 
 
@@ -558,3 +558,151 @@ def delete_appointment_red_cross(appointment_name):
         db.session.commit()
         return jsonify({'message': 'Appointment deleted'}), 200
     return jsonify({'message': 'Appointment not found'}), 404
+
+
+
+@app.route('/redcross/appointment/documents/create', methods=['POST'])
+@login_required
+@role_required('red cross')
+def create_document_red_cross():
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    data = request.form.to_dict()
+    if not data.get('appointment_name') or not data.get('document_name') or not data.get('document_type'):
+        return jsonify({'message': 'Missing required data'}), 400
+
+    appointment = Appointments.query.filter_by(appointment_name=data['appointment_name']).first()
+    if not appointment:
+        return jsonify({'message': 'Appointment not found'}), 404
+    
+    # Check if a document with the same name already exists for the patient
+    existing_document = Documents.query.join(Appointments).filter(
+        Appointments.patient_id == appointment.patient_id,
+        Documents.document_name == data['document_name']
+    ).first()
+    if existing_document:
+        return jsonify({'message': 'Document with this name already exists for the patient'}), 400
+
+    document_file = None
+    if 'document_file' in request.files:
+        file = request.files['document_file']
+        if file.filename == '':
+            return jsonify({'message': 'No selected file'}), 400
+        if file and file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.pdf')):
+            document_file = save_file(file, current_user.username)
+        else:
+            return jsonify({'message': 'Invalid file format, should be PNG, JPG, JPEG, or PDF'}), 400
+
+    document = Documents(
+        appointment_id=appointment.appointment_id,
+        document_name=data['document_name'],
+        document_type=data['document_type'],
+        document_description=data.get('document_description'),
+        document_file=document_file,
+        document_url=data.get('document_url'),
+        is_active=True,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        is_deleted=False
+    )
+    db.session.add(document)
+    db.session.commit()
+    return jsonify({'message': 'Document created'}), 201
+
+
+@app.route('/redcross/appointment/documents/update/<string:document_name>', methods=['PUT'])
+@login_required
+@role_required('red cross')
+def update_document_redcross(document_name):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    document = Documents.query.filter_by(document_name=document_name).first()
+    if not document:
+        return jsonify({'message': 'Document not found'}), 404
+
+    data = request.form.to_dict()
+    patient_username = data.get('patient_username')
+    if not patient_username:
+        return jsonify({'message': 'Missing patient username'}), 400
+
+    user = Users.query.filter_by(username=patient_username).first()
+    if not user or not user.patient:
+        return jsonify({'message': 'Patient not found'}), 404
+
+    patient = user.patient
+
+    appointment = Appointments.query.filter_by(appointment_id=document.appointment_id, patient_id=patient.patient_id).first()
+    if not appointment:
+        return jsonify({'message': 'Appointment not found for the specified patient'}), 404
+
+    new_document_name = data.get('document_name')
+    if not new_document_name:
+        return jsonify({'message': 'Missing required data'}), 400
+    
+    existing_document = Documents.query.join(Appointments).filter(
+        Appointments.patient_id == patient.patient_id,
+        Documents.document_name == new_document_name,
+        Documents.document_id != document.document_id
+    ).first()
+    if existing_document:
+        return jsonify({'message': 'Document name already exists for the patient'}), 400
+
+    document.document_name = new_document_name
+    if data.get('document_type'):
+        document.document_type = data.get('document_type')
+    if data.get('document_description'):
+        document.document_description = data.get('document_description')
+    if data.get('document_url'):
+        document.document_url = data.get('document_url')
+    if 'document_file' in request.files:
+        file = request.files['document_file']
+        if file.filename != '' and file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.pdf')):
+            document.document_file = save_file(file, current_user.username)
+        elif file.filename != '':
+            return jsonify({'message': 'Invalid file format, should be PNG, JPG, JPEG, or PDF'}), 400
+
+    document.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'message': 'Document updated'}), 200
+
+
+
+@app.route('/redcross/appointment/documents/active/<string:document_id>', methods=['PUT'])
+@login_required
+@role_required('red cross')
+def active_document_red_cross(document_id):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    document = Documents.query.filter_by(document_id=document_id).first()
+    if not document:
+        return jsonify({'message': 'Document not found'}), 404
+
+    if document.is_active == True:
+        document.is_active = False
+        db.session.commit()
+        return jsonify({'message': 'Document activated'}), 200
+    document.is_active = True
+    db.session.commit()
+    return jsonify({'message': 'Document deactivated'}), 200
+
+
+
+@app.route('/redcross/appointment/documents/delete/<string:document_id>', methods=['PUT'])
+@login_required
+@role_required('red cross')
+def delete_document_red_cross(document_id):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    document = Documents.query.filter_by(document_id=document_id).first()
+    if not document:
+        return jsonify({'message': 'Document not found'}), 404
+
+    if document:
+        document.is_deleted = True
+        db.session.commit()
+        return jsonify({'message': 'Document deleted'}), 200
+    return jsonify({'message': 'Document not found'}), 404
