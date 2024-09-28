@@ -3,7 +3,7 @@ from flask import request, jsonify, session, redirect, url_for
 from .helper import role_required, create_user_folder, save_file
 from datetime import datetime
 from app import app, db
-from .models import Users, Patients, Appointments, Doctors, Red_cross
+from .models import Users, Patients, Appointments, Doctors, Red_cross, Prescriptions
 from sqlalchemy.exc import IntegrityError
 
 
@@ -224,3 +224,49 @@ def list_patient_appointments():
             'red_cross_name': red_cross_name
         })
     return jsonify(appointment_list), 200
+
+
+@app.route('/patient/prescriptions' , methods=['GET'])
+@login_required
+@role_required('patient')
+def list_patient_prescriptions():
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    patient = Patients.query.filter_by(user_id=current_user.user_id).first()
+    if not patient:
+        return jsonify({'message': 'Patient not found'}), 404
+
+    prescriptions = Prescriptions.query.filter_by(patient_id=patient.patient_id).all()
+    if not prescriptions:
+        return jsonify({'message': 'No prescriptions found'}), 404
+
+    prescription_list = []
+    for prescription in prescriptions:
+        first_name = last_name = red_cross_name = middle_name = 'Unknown'
+        if prescription.doctor_id:
+            doctor = Doctors.query.filter_by(doctor_id=prescription.doctor_id).first()
+            source = 'doctor'
+            if doctor:
+                first_name = doctor.first_name
+                middle_name = doctor.middle_name
+                last_name = doctor.last_name
+
+        else:
+            red_cross = Red_cross.query.filter_by(red_cross_id=prescription.red_cross_id).first()
+            source = 'red cross'
+            if red_cross:
+                red_cross_name = red_cross.red_cross_name
+
+        prescription_list.append({
+            'created_at': prescription.created_at,
+            'prescription_name': prescription.prescription_name,
+            'prescription_description': prescription.prescription_description,
+            'source': source,
+            'first_name': first_name,
+            'middle_name': middle_name,
+            'last_name': last_name,
+            'prescription_doc': prescription.prescription_doc,
+            'red_cross_name': red_cross_name
+        })
+    return jsonify(prescription_list), 200

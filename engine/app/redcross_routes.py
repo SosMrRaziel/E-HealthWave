@@ -3,7 +3,7 @@ from flask import request, jsonify, session
 from .helper import role_required, save_file
 from datetime import datetime
 from app import app, db
-from .models import Users, Red_cross, Certificates, Working_days, Appointments, Patients, Documents
+from .models import Users, Red_cross, Certificates, Working_days, Appointments, Patients, Documents, Prescriptions
 from sqlalchemy.exc import IntegrityError
 
 
@@ -706,3 +706,175 @@ def delete_document_red_cross(document_id):
         db.session.commit()
         return jsonify({'message': 'Document deleted'}), 200
     return jsonify({'message': 'Document not found'}), 404
+
+
+@app.route("/redcross/prescription/create", methods=['POST'])
+@login_required
+@role_required('red cross')
+def create_prescription_red_cross():
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    data = request.form.to_dict()
+    required_fields = ['appointment_id', 'prescription_name', 'prescription_type']
+    if not all(field in data for field in required_fields):
+        return jsonify({'message': 'Missing required data'}), 400
+
+    appointment = Appointments.query.filter_by(appointment_id=data['appointment_id']).first()
+    if not appointment:
+        return jsonify({'message': 'Appointment not found'}), 404
+    
+    if appointment.red_cross_id != current_user.red_cross.red_cross_id:
+        return jsonify({'message': 'You are not authorized to create prescription for this appointment'}), 403
+    
+    prescription_doc = None
+    if 'prescription_doc' in request.files:
+        file = request.files['prescription_doc']
+        if file.filename == '':
+            return jsonify({'message': 'No selected file'}), 400
+        if file and file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            prescription_doc = save_file(file, current_user.username)
+        else:
+            return jsonify({'message': 'Invalid file format, should be PNG or JPG'}), 400
+
+    prescription = Prescriptions(
+        appointment_id=appointment.appointment_id,
+        red_cross_id=appointment.red_cross_id,
+        patient_id=appointment.patient_id,
+        prescription_name=data['prescription_name'],
+        prescription_type=data['prescription_type'],
+        prescription_description=data.get('prescription_description'),
+        prescription_doc=prescription_doc,
+        is_active=True,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        is_deleted=False
+    )
+    db.session.add(prescription)
+    db.session.commit()
+    return jsonify({'message': 'Prescription created'}), 201
+
+
+@app.route('/redcross/prescription/update/<string:prescription_id>', methods=['PUT'])
+@login_required
+@role_required('red cross')
+def update_prescription_red_cross(prescription_id):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    prescription = Prescriptions.query.filter_by(prescription_id=prescription_id).first()
+    if not prescription:
+        return jsonify({'message': 'Prescription not found'}), 404
+    
+    appointment = Appointments.query.filter_by(appointment_id=prescription.appointment_id).first()
+    if appointment.red_cross_id != current_user.red_cross.red_cross_id:
+        return jsonify({'message': 'You are not authorized to update this prescription'}), 403
+
+    data = request.form.to_dict()
+    if not data.get('prescription_name'):
+        return jsonify({'message': 'Missing required data'}), 400
+    
+    prescription.prescription_name = data.get('prescription_name')
+    if data.get('prescription_type'):
+        prescription.prescription_type = data.get('prescription_type')
+    if data.get('prescription_description'):
+        prescription.prescription_description = data.get('prescription_description')
+    if 'prescription_doc' in request.files:
+        file = request.files['prescription_doc']
+        if file.filename != '' and file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            prescription.prescription_doc = save_file(file, current_user.username)
+        elif file.filename != '':
+            return jsonify({'message': 'Invalid file format, should be PNG or JPG'}), 400
+
+    prescription.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'message': 'Prescription updated'}), 200
+
+
+@app.route('/redcross/prescription/delete/<string:prescription_id>', methods=['PUT'])
+@login_required
+@role_required('red cross')
+def delete_prescription_red_cross(prescription_id):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    prescription = Prescriptions.query.filter_by(prescription_id=prescription_id).first()
+    if not prescription:
+        return jsonify({'message': 'Prescription not found'}), 404
+    
+    appointment = Appointments.query.filter_by(appointment_id=prescription.appointment_id).first()
+    if appointment.red_cross_id != current_user.red_cross.red_cross_id:
+        return jsonify({'message': 'You are not authorized to delete this prescription'}), 403
+
+    if prescription:
+        prescription.is_deleted = True
+        db.session.commit()
+        return jsonify({'message': 'Prescription deleted'}), 200
+    return jsonify({'message': 'Prescription not found'}), 404
+
+
+
+# @app.route('/redcross/<string:username>/prescriptions', methods=['GET'])
+# @login_required
+# @role_required('red cross')
+# def get_prescriptions_by_patient_redcross(username):
+#     if not current_user.is_authenticated:
+#         return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+#     red_cross = Red_cross.query.filter_by(user_id=current_user.user_id).first()
+#     if not red_cross:
+#         return jsonify({'message': 'Doctor not found'}), 404
+
+#     patient = Patients.query.join(Users).filter(Users.username == username).first()
+#     if not patient:
+#         return jsonify({'message': 'Patient not found'}), 404
+
+#     prescriptions = Prescriptions.query.filter_by(doctor_id=red_cross.red_cross_id, patient_id=patient.patient_id).all()
+#     if not prescriptions:
+#         return jsonify({'message': 'No prescriptions found'}), 404
+
+#     prescription_list = []
+#     for prescription in prescriptions:
+#         prescription_list.append({
+#             'doctor_id': prescription.doctor_id,
+#             'patient_id': prescription.patient_id,
+#             'appointment_id': prescription.appointment_id,
+#             'prescription_name': prescription.prescription_name,
+#             'prescription_type': prescription.prescription_type,
+#             'prescription_description': prescription.prescription_description,
+#             'prescription_doc': prescription.prescription_doc
+#         })
+#     return jsonify(prescription_list), 200
+
+
+@app.route('/redcross/<string:username>/prescriptions', methods=['GET'])
+@login_required
+@role_required('red cross')
+def get_prescriptions_by_patient_redcross(username):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    redcross = Red_cross.query.filter_by(user_id=current_user.user_id).first()
+    if not redcross:
+        return jsonify({'message': 'Red cross not found'}), 404
+
+    patient = Patients.query.join(Users).filter(Users.username == username).first()
+    if not patient:
+        return jsonify({'message': 'Patient not found'}), 404
+
+    prescriptions = Prescriptions.query.filter_by(red_cross_id=redcross.red_cross_id, patient_id=patient.patient_id).all()
+    if not prescriptions:
+        return jsonify({'message': 'No prescriptions found'}), 404
+
+    prescription_list = []
+    for prescription in prescriptions:
+        prescription_list.append({
+            'red_cross_id': prescription.red_cross_id,
+            'patient_id': prescription.patient_id,
+            'appointment_id': prescription.appointment_id,
+            'prescription_name': prescription.prescription_name,
+            'prescription_type': prescription.prescription_type,
+            'prescription_description': prescription.prescription_description,
+            'prescription_doc': prescription.prescription_doc
+        })
+    return jsonify(prescription_list), 200

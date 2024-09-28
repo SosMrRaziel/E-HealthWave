@@ -345,35 +345,41 @@ class Documents(db.Model):
     def __repr__(self):
         return '<Document {}>'.format(self.document_name)
     
-# class Prescriptions(db.Model):
-#     __tablename__ = 'prescriptions'
-#     prescription_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
-#     patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
-#     doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
-#     prescription_name = db.Column(db.String(100), index=True)
-#     prescription_type = db.Column(db.String(50), index=True)
-#     prescription_url = db.Column(db.String(255), index=True)
-#     is_active = db.Column(db.Boolean, default=True)
-#     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
-#     is_deleted = db.Column(db.Boolean, default=False)
-#     patient = db.relationship('Patients', backref='prescription', lazy='dynamic')
-#     doctor = db.relationship('Doctors', backref='prescription', lazy='dynamic')
+class Prescriptions(db.Model):
+    __tablename__ = 'prescriptions'
+    prescription_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
+    appointment_id = db.Column(db.String(60), db.ForeignKey('appointments.appointment_id'))
+    patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
+    doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
+    red_cross_id = db.Column(db.String(60), db.ForeignKey('red_cross.red_cross_id'))
+    prescription_name = db.Column(db.String(100), index=True)
+    prescription_type = db.Column(db.String(50), index=True)
+    prescription_description = db.Column(db.String(255), index=True)
+    prescription_doc = db.Column(db.String(255), index=True)
+    # prescription_url = db.Column(db.String(255), index=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_deleted = db.Column(db.Boolean, default=False)
+    patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
+    doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
 
-#     def to_dict(self):
-#         return {
-#             'prescription_id': self.prescription_id,
-#             'patient_id': self.patient_id,
-#             'doctor_id': self.doctor_id,
-#             'prescription_name': self.prescription_name,
-#             'prescription_type': self.prescription_type,
-#             'prescription_url': self.prescription_url,
-#             'is_active': self.is_active,
-#             'updated_at': self.updated_at,
-#             'is_deleted': self.is_deleted
-#         }
+    def to_dict(self):
+        return {
+            'prescription_id': self.prescription_id,
+            'patient_id': self.patient_id,
+            'doctor_id': self.doctor_id,
+            'prescription_name': self.prescription_name,
+            'prescription_type': self.prescription_type,
+            'is_active': self.is_active,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at,
+            'prescription_doc': self.prescription_doc,
+            'is_deleted': self.is_deleted
+        }
     
-#     def __repr__(self):
-#         return '<Prescription {}>'.format(self.prescription_name)
+    def __repr__(self):
+        return '<Prescription {}>'.format(self.prescription_name)
     
 # class MedicalHistory(db.Model):
 #     __tablename__ = 'medical_history'
