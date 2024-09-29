@@ -381,35 +381,53 @@ class Prescriptions(db.Model):
     def __repr__(self):
         return '<Prescription {}>'.format(self.prescription_name)
     
-# class MedicalHistory(db.Model):
-#     __tablename__ = 'medical_history'
-#     medical_history_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
-#     patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
-#     doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
-#     medical_history_name = db.Column(db.String(100), index=True)
-#     medical_history_type = db.Column(db.String(50), index=True)
-#     medical_history_url = db.Column(db.String(255), index=True)
-#     is_active = db.Column(db.Boolean, default=True)
-#     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
-#     is_deleted = db.Column(db.Boolean, default=False)
-#     patient = db.relationship('Patients', backref='medical_history', lazy='dynamic')
-#     doctor = db.relationship('Doctors', backref='medical_history', lazy='dynamic')
+class MedicalHistory(db.Model):
+    __tablename__ = 'medical_history'
+    medical_history_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
+    patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
+    doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
+    Red_cross_id = db.Column(db.String(60), db.ForeignKey('red_cross.red_cross_id'))
+    medical_history_name = db.Column(db.String(100), index=True)
+    medical_history_type = db.Column(db.String(50), index=True)
+    medical_history_file = db.Column(db.String(255), index=True)
+    allergies = db.Column(sa.JSON)
+    medications = db.Column(sa.JSON)
+    surgeries = db.Column(sa.JSON)
+    medical_conditions = db.Column(sa.JSON)
+    past_illnesses = db.Column(sa.JSON)
+    immunizations = db.Column(sa.JSON)
+    smoking_status = db.Column(sa.Enum('never smoked', 'current smoker', 'former smoker'))
+    alcohol_use = db.Column(sa.Enum('never', 'social drinker', 'heavy drinker'))
+    exercise_frequency = db.Column(sa.Enum('none', 'light', 'moderate', 'heavy'))
+    is_active = db.Column(db.Boolean, default=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_deleted = db.Column(db.Boolean, default=False)
+    # patient = db.relationship('Patients', backref='medical_history', lazy='dynamic')
+    # doctor = db.relationship('Doctors', backref='medical_history', lazy='dynamic')
+    # redcross = db.relationship('Red_cross', backref='medical_history', lazy='dynamic')
 
-#     def to_dict(self):
-#         return {
-#             'medical_history_id': self.med,
-#             'patient_id': self.patient_id,
-#             'doctor_id': self.doctor_id,
-#             'medical_history_name': self.medical_history_name,
-#             'medical_history_type': self.medical_history_type,
-#             'medical_history_url': self.medical_history_url,
-#             'is_active': self.is_active,
-#             'updated_at': self.updated_at,
-#             'is_deleted': self.is_deleted
-#         }
-    
-#     def __repr__(self):
-#         return '<MedicalHistory {}>'.format(self.medical_history_name)
+    def to_dict(self):
+        return {
+            'medical_history_id': self.medical_history_id,
+            'patient_id': self.patient_id,
+            'doctor_id': self.doctor_id,
+            'Red_cross_id': self.Red_cross_id,
+            'medical_history_name': self.medical_history_name,
+            'medical_history_type': self.medical_history_type,
+            'medical_history_file': self.medical_history_url,
+            'allergies': self.allergies,
+            'medications': self.medications,
+            'surgeries': self.surgeries,
+            'medical_conditions': self.medical_conditions,
+            'past_illnesses': self.past_illnesses,
+            'immunizations': self.immunizations,
+            'smoking_status': self.smoking_status,
+            'alcohol_use': self.alcohol_use,
+            'exercise_frequency': self.exercise_frequency,
+            'is_active': self.is_active,
+            'updated_at': self.updated_at,
+            'is_deleted': self.is_deleted
+        }
 
 # class Notifications(db.Model):
 #     __tablename__ = 'notifications'

@@ -3,8 +3,9 @@ from flask import request, jsonify, session
 from .helper import role_required, save_file
 from datetime import datetime
 from app import app, db
-from .models import Users, Doctors, Patients, Certificates, Working_days, Appointments, Working_days, Documents, Prescriptions
+from .models import Users, Doctors, Patients, Certificates, Working_days, Appointments, Working_days, Documents, Prescriptions, MedicalHistory
 from sqlalchemy.exc import IntegrityError
+import json
 
 
 
@@ -932,3 +933,137 @@ def get_prescriptions_by_patient(username):
             'created_at': prescription.created_at
         })
     return jsonify(prescription_list), 200
+
+
+
+@app.route('/doctor/medicalhistory/create', methods=['POST'])
+@login_required
+@role_required('doctor')
+def create_medical_history():
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    data = request.form.to_dict()
+
+    required_fields = ['patient_username', 'medical_history_name', 'medical_history_type']
+
+    if not all(field in data for field in required_fields):
+        return jsonify({'message': 'Missing required data'}), 400
+
+    patient = Patients.query.join(Users).filter(Users.username == data['patient_username']).first()
+    if not patient:
+        return jsonify({'message': 'Patient not found'}), 404
+
+    medical_history_file = None
+    if 'medical_history_file' in request.files:
+        file = request.files['medical_history_file']
+        if file.filename == '':
+            return jsonify({'message': 'No selected file'}), 400
+        if file and file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.pdf')):
+            medical_history_file = save_file(file, current_user.username)
+        else:
+            return jsonify({'message': 'Invalid file format, should be PNG, JPG, JPEG, or PDF'}), 400
+
+    medical_history = MedicalHistory(
+        patient_id=patient.patient_id,
+        doctor_id=current_user.doctor.doctor_id,
+        medical_history_name=data['medical_history_name'],
+        medical_history_type=data['medical_history_type'],
+        medical_history_file=medical_history_file,
+        allergies=json.loads(data.get('allergies', '{}')),
+        medications=json.loads(data.get('medications', '{}')),
+        surgeries=json.loads(data.get('surgeries', '[]')),
+        medical_conditions=json.loads(data.get('medical_conditions', '[]')),
+        past_illnesses=json.loads(data.get('past_illnesses', '[]')),
+        immunizations=json.loads(data.get('immunizations', '[]')),
+        smoking_status=data.get('smoking_status'),
+        alcohol_use=data.get('alcohol_use'),
+        exercise_frequency=data.get('exercise_frequency'),
+        is_active=True,
+        updated_at=datetime.utcnow(),
+        is_deleted=False
+    )
+    db.session.add(medical_history)
+    db.session.commit()
+    return jsonify({'message': 'Medical history created'}), 201
+
+
+
+@app.route('/doctor/medicalhistory/update/<string:medical_history_id>', methods=['PUT'])
+@login_required
+@role_required('doctor')
+def update_medical_history(medical_history_id):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    medical_history = MedicalHistory.query.filter_by(medical_history_id=medical_history_id).first()
+    if not medical_history:
+        return jsonify({'message': 'Medical history not found'}), 404
+
+    data = request.form.to_dict()
+    if not data.get('medical_history_name'):
+        return jsonify({'message': 'Missing required data'}), 400
+
+    medical_history.medical_history_name = data.get('medical_history_name')
+    if data.get('medical_history_type'):
+        medical_history.medical_history_type = data.get('medical_history_type')
+    if data.get('allergies'):
+        medical_history.allergies = data.get('allergies')
+    if data.get('medications'):
+        medical_history.medications = data.get('medications')
+    if data.get('surgeries'):
+        medical_history.surgeries = data.get('surgeries')
+    if data.get('medical_conditions'):
+        medical_history.medical_conditions = data.get('medical_conditions')
+    if data.get('past_illnesses'):
+        medical_history.past_illnesses = data.get('past_illnesses')
+    if data.get('immunizations'):
+        medical_history.immunizations = data.get('immunizations')
+    if data.get('smoking_status'):
+        medical_history.smoking_status = data.get('smoking_status')
+    if data.get('alcohol_use'):
+        medical_history.alcohol_use = data.get('alcohol_use')
+    if data.get('exercise_frequency'):
+        medical_history.exercise_frequency = data.get('exercise_frequency')
+    if 'medical_history_file' in request.files:
+        file = request.files['medical_history_file']
+        if file.filename != '' and file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.pdf')):
+            medical_history.medical_history_file = save_file(file, current_user.username)
+        elif file.filename != '':
+            return jsonify({'message': 'Invalid file format, should be PNG, JPG, JPEG, or PDF'}), 400
+
+    medical_history.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'message': 'Medical history updated'}), 200 
+        
+
+@app.route('/doctor/<string:username>/medicalhistory', methods=['GET'])
+@login_required
+@role_required('doctor')
+def get_medical_history(username):
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'You must be logged in to access this page'}), 401
+
+    patient = Patients.query.join(Users).filter(Users.username == username).first()
+    if not patient:
+        return jsonify({'message': 'Patient not found'}), 404
+
+    medical_history = MedicalHistory.query.filter_by(patient_id=patient.patient_id).first()
+    if not medical_history:
+        return jsonify({'message': 'No medical history found'}), 404
+
+    return jsonify({
+        'medical_history_id': medical_history.medical_history_id,
+        'medical_history_name': medical_history.medical_history_name,
+        'medical_history_type': medical_history.medical_history_type,
+        'medical_history_file': medical_history.medical_history_file,
+        'allergies': medical_history.allergies,
+        'medications': medical_history.medications,
+        'surgeries': medical_history.surgeries,
+        'medical_conditions': medical_history.medical_conditions,
+        'past_illnesses': medical_history.past_illnesses,
+        'immunizations': medical_history.immunizations,
+        'smoking_status': medical_history.smoking_status,
+        'alcohol_use': medical_history.alcohol_use,
+        'exercise_frequency': medical_history.exercise_frequency
+    }), 200
