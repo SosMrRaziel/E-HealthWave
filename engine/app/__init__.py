@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
 import jwt
+from flask_socketio import SocketIO
 
 
 
@@ -21,6 +22,7 @@ login = LoginManager()
 login.init_app(app)
 # redirect to login page if user is not logged in
 login.login_view = "login"
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Set up the request loader
 @login.request_loader
@@ -44,5 +46,5 @@ def load_user(user_id):
 
 
 
-from app import models, routes, doctor_routes, patient_routes, redcross_routes
+from app import models, routes, doctor_routes, patient_routes, redcross_routes, chat_routes
 

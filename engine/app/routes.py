@@ -105,22 +105,22 @@ def logout():
     return jsonify({'message': 'Logged out'}), 200
 
 
-@app.route('/user/delete', methods=['PUT'])
-@login_required
-def delete_user():
-    if not current_user.is_authenticated:
-        return jsonify({'message': 'You must be logged in to access this page'}), 401
+# @app.route('/user/delete', methods=['PUT'])
+# @login_required
+# def delete_user():
+#     if not current_user.is_authenticated:
+#         return jsonify({'message': 'You must be logged in to access this page'}), 401
     
-    username = current_user.username
-    doctor = Doctors.query.join(Users).filter(Users.username == username).first()
-    patient = Patients.query.join(Users).filter(Users.username == username).first()
+#     username = current_user.username
+#     doctor = Doctors.query.join(Users).filter(Users.username == username).first()
+#     patient = Patients.query.join(Users).filter(Users.username == username).first()
 
-    if doctor:
-        doctor.is_deleted = True
-        db.session.commit()
-        return jsonify({'message': 'Doctor deleted'}), 200
-    if patient:
-        patient.is_deleted = True
-        db.session.commit()
-        return jsonify({'message': 'Patient deleted'}), 200
-    return jsonify({'message': 'User not found'}), 404
+#     if doctor:
+#         doctor.is_deleted = True
+#         db.session.commit()
+#         return jsonify({'message': 'Doctor deleted'}), 200
+#     if patient:
+#         patient.is_deleted = True
+#         db.session.commit()
+#         return jsonify({'message': 'Patient deleted'}), 200
+#     return jsonify({'message': 'User not found'}), 404

@@ -1,0 +1,67 @@
+<!-- <!DOCTYPE html>
+<html>
+  <head>
+    <title>Chat Room</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+  </head>
+  <body>
+    <div id="messages"></div>
+    <script>
+      var socket = io.connect('http://127.0.0.1:5000');
+
+      // Join the chat room
+      socket.emit('join', {
+        room_id: '819a5832-bfab-4145-907f-00e92ae7f8fc',
+        username: 'athena',
+      });
+
+      // Listen for new messages
+      socket.on('new_message', function (data) {
+        var messageDiv = document.createElement('div');
+        messageDiv.textContent = data.sender_username + ': ' + data.message;
+        document.getElementById('messages').appendChild(messageDiv);
+      });
+    </script>
+  </body>
+</html> -->
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Chat Room</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+  </head>
+  <body>
+    <div id="messages"></div>
+    <script>
+      var socket = io.connect('http://127.0.0.1:5000');
+      var roomId = '6a6509b9-e002-4624-ab94-76dc4c532e80';
+
+      // Fetch and display messages
+      fetch(`/chat/${roomId}/messages`)
+        .then((response) => response.json())
+        .then((messages) => {
+          var messagesDiv = document.getElementById('messages');
+          messages.forEach((message) => {
+            var messageDiv = document.createElement('div');
+            messageDiv.textContent =
+              message.sender_username + ': ' + message.message;
+            messagesDiv.appendChild(messageDiv);
+          });
+        });
+
+      // Join the chat room
+      socket.emit('join', {
+        room_id: roomId,
+        username: 'athena',
+      });
+
+      // Listen for new messages
+      socket.on('new_message', function (data) {
+        var messageDiv = document.createElement('div');
+        messageDiv.textContent = data.sender_username + ': ' + data.message;
+        document.getElementById('messages').appendChild(messageDiv);
+      });
+    </script>
+  </body>
+</html>

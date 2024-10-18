@@ -17,9 +17,13 @@ class Users(db.Model, UserMixin):
     last_login = db.Column(db.DateTime, default=datetime.utcnow)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     _is_active = db.Column(db.Boolean, default=True)
+
     doctor = db.relationship('Doctors', uselist=False, back_populates='user')
     patient = db.relationship('Patients', uselist=False, back_populates='user')
     red_cross = db.relationship('Red_cross', uselist=False, back_populates='user')
+
+    sent_messages = db.relationship('Messages', foreign_keys='Messages.sender_id', back_populates='sender', lazy='dynamic')
+    received_messages = db.relationship('Messages', foreign_keys='Messages.receiver_id', back_populates='receiver', lazy='dynamic')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -59,6 +63,7 @@ class Doctors(db.Model):
     """ Doctors model """
     __tablename__ = 'doctors'
     doctor_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
+    user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'), unique=True)
     first_name = db.Column(db.String(25), index=True)
     middle_name = db.Column(db.String(25), index=True)
     last_name = db.Column(db.String(25), index=True)
@@ -79,10 +84,15 @@ class Doctors(db.Model):
     # is_active = db.Column(db.Boolean, default=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)
-    user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'), unique=True)
+
     user = db.relationship('Users', back_populates='doctor')
-    Certificate = db.relationship('Certificates', backref='doctor', lazy='dynamic')
+    certificate = db.relationship('Certificates', back_populates='doctor')
     Working_days = db.relationship('Working_days', uselist=False, back_populates='doctor')
+    chat_rooms = db.relationship('ChatRoom', back_populates='doctor')
+    appointment = db.relationship('Appointments', back_populates='doctor')
+    document = db.relationship('Documents', back_populates='doctor')
+    prescription = db.relationship('Prescriptions', back_populates='doctor')
+    medical_history = db.relationship('MedicalHistory', back_populates='doctor')
 
     def to_dict(self):
         return {
@@ -117,6 +127,7 @@ class Red_cross(db.Model):
     """ Red Cross model """
     __tablename__ = 'red_cross'
     red_cross_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
+    user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'), unique=True)
     red_cross_name = db.Column(db.String(100), index=True)
     red_cross_address = db.Column(db.String(120), index=True)
     red_cross_city = db.Column(db.String(25), index=True)
@@ -130,10 +141,14 @@ class Red_cross(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)
-    user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'), unique=True)
+
     user = db.relationship('Users', back_populates='red_cross')
-    Certificate = db.relationship('Certificates', backref='red_cross', lazy='dynamic')
+    certificate = db.relationship('Certificates', back_populates='red_cross')
     Working_days = db.relationship('Working_days', uselist=False, back_populates='red_cross')
+    appointment = db.relationship('Appointments', back_populates='red_cross')
+    document = db.relationship('Documents', back_populates='red_cross')
+    prescription = db.relationship('Prescriptions', back_populates='red_cross')
+    medical_history = db.relationship('MedicalHistory', back_populates='red_cross')
 
 
     def to_dict(self):
@@ -154,13 +169,13 @@ class Red_cross(db.Model):
         }
     
     def __repr__(self):
-        return '<RedCross {}>'.format(self.red_cross_name)
+        return '<Red_cross {}>'.format(self.red_cross_name)
 
     
 class Patients(db.Model):
     __tablename__ = 'patients'
     patient_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
-    user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'))
+    user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'), unique=True)
     first_name = db.Column(db.String(25), index=True)
     middle_name = db.Column(db.String(25), index=True)
     last_name = db.Column(db.String(25), index=True)
@@ -178,9 +193,14 @@ class Patients(db.Model):
     # is_active = db.Column(db.Boolean, default=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)
-    user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'), unique=True)
+
     user = db.relationship('Users', back_populates='patient')
-    
+    chat_rooms = db.relationship('ChatRoom', back_populates='patient')
+    appointment = db.relationship('Appointments', back_populates='patient')
+    document = db.relationship('Documents', back_populates='patient')
+    prescription = db.relationship('Prescriptions', back_populates='patient')
+    medical_history = db.relationship('MedicalHistory', back_populates='patient')
+
 
     def to_dict(self):
         return {
@@ -221,7 +241,9 @@ class Certificates(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)
-    # doctor = db.relationship('Doctors', backref='certificate', lazy='dynamic')
+
+    doctor = db.relationship('Doctors', back_populates='certificate')
+    red_cross = db.relationship('Red_cross', back_populates='certificate')    
 
     def to_dict(self):
         return {
@@ -251,6 +273,7 @@ class Working_days(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)
+
     doctor = db.relationship('Doctors', back_populates='Working_days')
     red_cross = db.relationship('Red_cross', back_populates='Working_days')
 
@@ -285,10 +308,12 @@ class Appointments(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
     is_deleted = db.Column(db.Boolean, default=False)
-    document = db.relationship('Documents', backref='appointment', lazy='dynamic')
-    # patient = db.relationship('Patients', backref='appointment', lazy='dynamic')
-    # doctor = db.relationship('Doctors', backref='appointment', lazy='dynamic')
-    # Red_cross = db.relationship('Red_cross', backref='appointment', lazy='dynamic')
+
+    document = db.relationship('Documents', back_populates='appointment')
+    patient = db.relationship('Patients', back_populates='appointment')
+    doctor = db.relationship('Doctors', back_populates='appointment')
+    red_cross = db.relationship('Red_cross', back_populates='appointment')
+    prescriptions = db.relationship('Prescriptions', back_populates='appointment')
 
     def to_dict(self):
         return {
@@ -314,8 +339,9 @@ class Documents(db.Model):
     __tablename__ = 'documents'
     document_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
     appointment_id = db.Column(db.String(60), db.ForeignKey('appointments.appointment_id'))
-    # patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
-    # doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
+    doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
+    red_cross_id = db.Column(db.String(60), db.ForeignKey('red_cross.red_cross_id'))
+    patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
     document_name = db.Column(db.String(100), index=True)
     document_type = db.Column(db.String(50), index=True)
     document_description = db.Column(db.String(255), index=True)
@@ -325,8 +351,11 @@ class Documents(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)
-    # patient = db.relationship('Patients', backref='document', lazy='dynamic')
-    # doctor = db.relationship('Doctors', backref='document', lazy='dynamic')
+
+    doctor = db.relationship('Doctors', back_populates='document')
+    red_cross = db.relationship('Red_cross', back_populates='document')
+    patient = db.relationship('Patients', back_populates='document')
+    appointment = db.relationship('Appointments', back_populates='document')
 
     def to_dict(self):
         return {
@@ -361,8 +390,11 @@ class Prescriptions(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)
-    patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
-    doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
+
+    patient = db.relationship('Patients', back_populates='prescription')
+    doctor = db.relationship('Doctors', back_populates='prescription')
+    red_cross = db.relationship('Red_cross', back_populates='prescription')
+    appointment = db.relationship('Appointments', back_populates='prescriptions')
 
     def to_dict(self):
         return {
@@ -386,7 +418,7 @@ class MedicalHistory(db.Model):
     medical_history_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
     patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
     doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
-    Red_cross_id = db.Column(db.String(60), db.ForeignKey('red_cross.red_cross_id'))
+    red_cross_id = db.Column(db.String(60), db.ForeignKey('red_cross.red_cross_id'))
     medical_history_name = db.Column(db.String(100), index=True)
     medical_history_type = db.Column(db.String(50), index=True)
     medical_history_file = db.Column(db.String(255), index=True)
@@ -402,9 +434,11 @@ class MedicalHistory(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)
-    # patient = db.relationship('Patients', backref='medical_history', lazy='dynamic')
-    # doctor = db.relationship('Doctors', backref='medical_history', lazy='dynamic')
-    # redcross = db.relationship('Red_cross', backref='medical_history', lazy='dynamic')
+
+    patient = db.relationship('Patients', back_populates='medical_history')
+    doctor = db.relationship('Doctors', back_populates='medical_history')
+    red_cross = db.relationship('Red_cross', back_populates='medical_history')
+    
 
     def to_dict(self):
         return {
@@ -430,7 +464,7 @@ class MedicalHistory(db.Model):
         }
 
 # class Notifications(db.Model):
-#     __tablename__ = 'notifications'
+    # __tablename__ = 'notifications'
 #     notification_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
 #     user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'))
 #     notification_type = db.Column(db.String(50), index=True)
@@ -439,7 +473,7 @@ class MedicalHistory(db.Model):
 #     is_active = db.Column(db.Boolean, default=True)
 #     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 #     is_deleted = db.Column(db.Boolean, default=False)
-#     user = db.relationship('Users', backref='notification', lazy='dynamic')
+#     user = db.relationship('Users', backref='notification')
 
 #     def to_dict(self):
 #         return {
@@ -455,37 +489,66 @@ class MedicalHistory(db.Model):
     
 #     def __repr__(self):
 #         return '<Notification {}>'.format(self.notification_id)
-    
-# class Messages(db.Model):
-#     __tablename__ = 'messages'
-#     message_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
-#     sender_id = db.Column(db.String(60), db.ForeignKey('users.user_id'))
-#     receiver_id = db.Column(db.String(60), db.ForeignKey('users.user_id'))
-#     message = db.Column(db.String(255), index=True)
-#     message_type = db.Column(db.String(50), index=True)
-#     is_active = db.Column(db.Boolean, default=True)
-#     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
-#     is_deleted = db.Column(db.Boolean, default=False)
-#     sender = db.relationship('Users', backref='message', lazy='dynamic')
-#     receiver = db.relationship('Users', backref='message', lazy='dynamic')
 
-#     def to_dict(self):
-#         return {
-#             'message_id': self.message_id,
-#             'sender_id': self.sender_id,
-#             'receiver_id': self.receiver_id,
-#             'message': self.message,
-#             'message_type': self.message_type,
-#             'is_active': self.is_active,
-#             'updated_at': self.updated_at,
-#             'is_deleted': self.is_deleted
-#         }
+class ChatRoom(db.Model):
+    __tablename__ = 'chat_rooms'
+    room_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
+    doctor_id = db.Column(db.String(60), db.ForeignKey('doctors.doctor_id'))
+    patient_id = db.Column(db.String(60), db.ForeignKey('patients.patient_id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+
+    doctor = db.relationship('Doctors', back_populates='chat_rooms')
+    patient = db.relationship('Patients', back_populates='chat_rooms')
+    messages = db.relationship('Messages', back_populates='chat_room')
+
+    def to_dict(self):
+        return {
+            'room_id': self.room_id,
+            'doctor_id': self.doctor_id,
+            'patient_id': self.patient_id,
+            'created_at': self.created_at,
+            'is_active': self.is_active
+        }
+
+    def __repr__(self):
+        return '<ChatRoom {}>'.format(self.room_id)
     
-#     def __repr__(self):
-#         return '<Message {}>'.format(self.message_id)
+class Messages(db.Model):
+    __tablename__ = 'messages'
+    message_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
+    chat_room_id = db.Column(db.String(60), db.ForeignKey('chat_rooms.room_id'))
+    sender_id = db.Column(db.String(60), db.ForeignKey('users.user_id'))
+    receiver_id = db.Column(db.String(60), db.ForeignKey('users.user_id'))
+    message = db.Column(db.String(255), index=True)
+    message_type = db.Column(db.String(50), index=True)
+    is_active = db.Column(db.Boolean, default=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_deleted = db.Column(db.Boolean, default=False)
+    is_read = db.Column(db.Boolean, default=False)
+
+    chat_room = db.relationship('ChatRoom', back_populates='messages')
+    sender = db.relationship('Users', foreign_keys=[sender_id], back_populates='sent_messages')
+    receiver = db.relationship('Users', foreign_keys=[receiver_id], back_populates='received_messages')
+
+    def to_dict(self):
+        return {
+            'message_id': self.message_id,
+            'chat_room_id': self.chat_room_id,
+            'sender_id': self.sender_id,
+            'receiver_id': self.receiver_id,
+            'message': self.message,
+            'message_type': self.message_type,
+            'is_active': self.is_active,
+            'updated_at': self.updated_at,
+            'is_deleted': self.is_deleted
+        }
+
+    def __repr__(self):
+        return '<Message {}>'.format(self.message_id)
 
 # class Posts(db.Model):
-#     __tablename__ = 'posts'
+    # __tablename__ = 'posts'
 #     post_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
 #     user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'))
 #     post = db.Column(db.String(255), index=True)
@@ -494,7 +557,7 @@ class MedicalHistory(db.Model):
 #     is_active = db.Column(db.Boolean, default=True)
 #     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 #     is_deleted = db.Column(db.Boolean, default=False)
-#     user = db.relationship('Users', backref='post', lazy='dynamic')
+#     user = db.relationship('Users', backref='post')
 
 #     def to_dict(self):
 #         return {
@@ -512,15 +575,15 @@ class MedicalHistory(db.Model):
 #         return '<Post {}>'.format(self.post_id)
     
 # class Post_likes(db.Model):
-#     __tablename__ = 'post_likes'
+    # __tablename__ = 'post_likes'
 #     post_like_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
 #     post_id = db.Column(db.String(60), db.ForeignKey('posts.post_id'))
 #     user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'))
 #     is_active = db.Column(db.Boolean, default=True)
 #     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 #     is_deleted = db.Column(db.Boolean, default=False)
-#     post = db.relationship('Posts', backref='post_like', lazy='dynamic')
-#     user = db.relationship('Users', backref='post_like', lazy='dynamic')
+#     post = db.relationship('Posts', backref='post_like')
+#     user = db.relationship('Users', backref='post_like')
 
 #     def to_dict(self):
 #         return {
@@ -536,7 +599,7 @@ class MedicalHistory(db.Model):
 #         return '<PostLike {}>'.format(self.post_like_id)
     
 # class Comments(db.Model):
-#     __tablename__ = 'comments'
+    # __tablename__ = 'comments'
 #     comment_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
 #     post_id = db.Column(db.String(60), db.ForeignKey('posts.post_id'))
 #     user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'))
@@ -544,8 +607,8 @@ class MedicalHistory(db.Model):
 #     is_active = db.Column(db.Boolean, default=True)
 #     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 #     is_deleted = db.Column(db.Boolean, default=False)
-#     post = db.relationship('Posts', backref='comment', lazy='dynamic')
-#     user = db.relationship('Users', backref='comment', lazy='dynamic')
+#     post = db.relationship('Posts', backref='comment')
+#     user = db.relationship('Users', backref='comment')
 
 #     def to_dict(self):
 #         return {
@@ -562,15 +625,15 @@ class MedicalHistory(db.Model):
 #         return '<Comment {}>'.format(self.comment_id)
 
 # class Comment_likes(db.Model):
-#     __tablename__ = 'comment_likes'
+    # __tablename__ = 'comment_likes'
 #     comment_like_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
 #     comment_id = db.Column(db.String(60), db.ForeignKey('comments.comment_id'))
 #     user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'))
 #     is_active = db.Column(db.Boolean, default=True)
 #     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 #     is_deleted = db.Column(db.Boolean, default=False)
-#     comment = db.relationship('Comments', backref='comment_like', lazy='dynamic')
-#     user = db.relationship('Users', backref='comment_like', lazy='dynamic')
+#     comment = db.relationship('Comments', backref='comment_like')
+#     user = db.relationship('Users', backref='comment_like')
 
 #     def to_dict(self):
 #         return {
@@ -586,14 +649,14 @@ class MedicalHistory(db.Model):
 #         return '<CommentLike {}>'.format(self.comment_like_id)
 
 # class user_IP(db.Model):
-#     __tablename__ = 'user_ip'
+    # __tablename__ = 'user_ip'
 #     user_ip_id = db.Column(db.String(60), default=lambda: str(uuid.uuid4()), primary_key=True)
 #     user_id = db.Column(db.String(60), db.ForeignKey('users.user_id'))
     # user_ip = db.Column(db.String(60), index=True, unique=True)
 #     is_active = db.Column(db.Boolean, default=True)
 #     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 #     is_deleted = db.Column(db.Boolean, default=False)
-#     user = db.relationship('Users', backref='user_ip', lazy='dynamic')
+#     user = db.relationship('Users', backref='user_ip')
 
 #     def to_dict(self):
 #         return {
